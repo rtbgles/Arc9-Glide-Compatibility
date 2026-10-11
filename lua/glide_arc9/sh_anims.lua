@@ -9,8 +9,8 @@
     While in weapon mode, for every seat:
     - use the seated pose that matches the weapon's hold type
     - point the arms and head at the player's aim (pose parameters), then
-      measure where the gun really points and turn the spine until it's
-      on target (clientside, any model, seated or leaning out)
+      measure where the gun really points and twist the spine / adjust the
+      arms until it's on target (clientside, any model, seated or leaning)
     - skip Glide's hand/arm bone poses
 
     Glide's hooks are wrapped in place (same hook identifiers), so it does
@@ -140,15 +140,20 @@ end
 ----- Closed-loop aim (clientside, for every player in weapon mode)
 
 --[[
-    The pose parameters above get the gun roughly toward the aim, but how
+    The pose parameters below get the gun roughly toward the aim, but how
     far they really turn it depends on the player model, the seated
     animation and the seat's tilt (leaning out). So every frame the gun's
-    actual direction is measured and the spine is rotated a little toward
-    the aim. Whatever the pose got wrong is corrected, on any model.
+    actual direction is measured and corrected the way a body would:
 
-    The spine bones are what turns: the arms, head and gun hang off them,
-    the legs don't. Each bone can only turn so far, which is the body's
-    physical limit; past it the gun stays at the edge.
+    - left/right: the spine twists around the torso's own up axis (the
+      seat's, which tilts while leaning out). It never bends forward or
+      sideways, so the body can't fold up to reach an aim.
+    - up/down: the arms' aim_pitch is adjusted until the gun's elevation
+      matches.
+
+    Each spine bone can only twist so far and aim_pitch has its own range,
+    which is the body's physical limit: past it the gun stays at the edge.
+    The legs don't hang off the spine, so they stay put.
 ]]
 
 local CORRECTION_BONES = {
@@ -164,14 +169,21 @@ local CORRECTION_RATE = 14
 -- How quickly the spine drifts back to rest, so no odd twist builds up
 local RELAX_RATE = 0.25
 
--- Most a single frame may turn the gun (degrees)
+-- Most a single frame may twist the spine (degrees)
 local MAX_STEP = 20
 
--- Most each spine bone may turn away from the animation (degrees)
+-- Most each spine bone may twist away from the animation (degrees)
 local MAX_BONE_CORRECTION = 35
+
+-- Most the arms' aim_pitch may be shifted from the rough pose (degrees)
+local MAX_PITCH_OFFSET = 60
 
 -- Errors smaller than this are left alone (degrees)
 local DEADBAND = 0.5
+
+-- Projections shorter than this (aiming along the torso's up axis) can't
+-- tell left from right
+local MIN_PROJECTION = 0.1
 
 -- [model] = { boneId, ... }
 local correctionBoneIds = {}
@@ -232,40 +244,22 @@ local function GetTargetDirection( ply )
     return vehicle:LocalToWorldAngles( ang ):Forward()
 end
 
-local function ApplyAimCorrection( ply, weapon )
-    local ids = GetCorrectionBones( ply )
-    local count = #ids
-    if count == 0 then return end
+--- Degrees above the plane perpendicular to `up`.
+local function GetElevation( dir, up )
+    return math.deg( math.asin( Clamp( dir:Dot( up ), -1, 1 ) ) )
+end
 
-    local target = GetTargetDirection( ply )
-    local gun = GetGunDirection( weapon )
-    if not target or not gun then return end
-
-    local dt = FrameTime()
-    local relax = 1 - math.exp( -RELAX_RATE * dt )
-
-    -- The rotation that would turn the gun onto the target
-    local axis = gun:Cross( target )
-    local sinError = axis:Length()
-    local errorAngle = math.deg( math.atan2( sinError, gun:Dot( target ) ) )
-    local step = 0
-
-    if errorAngle > DEADBAND and sinError > 1e-4 then
-        axis:Div( sinError )
-        step = math.min( errorAngle * ( 1 - math.exp( -CORRECTION_RATE * dt ) ), MAX_STEP ) / count
-    end
-
-    ply:GetTable().GlideArc9AimError = errorAngle
-
+--- Twist every correction bone by `step` degrees around the world axis `up`,
+--- on top of its current manipulation, while easing it back toward rest.
+local function TwistSpine( ply, ids, up, step, relax )
     for _, id in ipairs( ids ) do
         local manip = LerpAngle( relax, ply:GetManipulateBoneAngles( id ), angle_zero )
-        local matrix = step > 0 and ply:GetBoneMatrix( id )
+        local matrix = step ~= 0 and ply:GetBoneMatrix( id )
 
         if matrix then
             -- The world axis in this bone's frame, then in the frame the
-            -- manipulation is applied in: turning the bone by `step` around
-            -- the world axis, on top of its current manipulation.
-            local boneAxis = WorldToLocal( axis, angle_zero, vector_origin, matrix:GetAngles() )
+            -- manipulation is applied in
+            local boneAxis = WorldToLocal( up, angle_zero, vector_origin, matrix:GetAngles() )
             local manipAxis = LocalToWorld( boneAxis, angle_zero, vector_origin, manip )
             manipAxis:Normalize()
 
@@ -281,6 +275,55 @@ local function ApplyAimCorrection( ply, weapon )
     end
 end
 
+local function ApplyAimCorrection( ply, weapon )
+    local ids = GetCorrectionBones( ply )
+    local count = #ids
+    if count == 0 then return end
+
+    local seat = ply:GetVehicle()
+    if not IsValid( seat ) then return end
+
+    local target = GetTargetDirection( ply )
+    local gun = GetGunDirection( weapon )
+    if not target or not gun then return end
+
+    local plyTbl = ply:GetTable()
+    local dt = FrameTime()
+    local gain = 1 - math.exp( -CORRECTION_RATE * dt )
+    local relax = 1 - math.exp( -RELAX_RATE * dt )
+    local up = seat:GetUp()
+
+    -- Left/right: the signed angle between gun and aim around the torso's up axis
+    local gunFlat = gun - up * gun:Dot( up )
+    local targetFlat = target - up * target:Dot( up )
+    local twistError = 0
+
+    if gunFlat:Length() > MIN_PROJECTION and targetFlat:Length() > MIN_PROJECTION then
+        twistError = math.deg( math.atan2( up:Dot( gunFlat:Cross( targetFlat ) ), gunFlat:Dot( targetFlat ) ) )
+    end
+
+    local step = 0
+
+    if math.abs( twistError ) > DEADBAND then
+        step = Clamp( twistError * gain, -MAX_STEP, MAX_STEP ) / count
+    end
+
+    TwistSpine( ply, ids, up, step, relax )
+
+    -- Up/down: shift the arms' aim_pitch (positive aims lower), used in
+    -- UpdateWeaponModeAim on the next animation update
+    local elevationError = GetElevation( target, up ) - GetElevation( gun, up )
+
+    if math.abs( elevationError ) > DEADBAND then
+        local offset = ( plyTbl.GlideArc9PitchOffset or 0 ) - elevationError * gain
+        plyTbl.GlideArc9PitchOffset = Clamp( offset, -MAX_PITCH_OFFSET, MAX_PITCH_OFFSET )
+    end
+
+    plyTbl.GlideArc9AimError = math.deg( math.acos( Clamp( gun:Dot( target ), -1, 1 ) ) )
+    plyTbl.GlideArc9TwistError = twistError
+    plyTbl.GlideArc9ElevationError = elevationError
+end
+
 local function UpdateWeaponModeAim( ply )
     local plyTbl = ply:GetTable()
 
@@ -289,6 +332,7 @@ local function UpdateWeaponModeAim( ply )
         if plyTbl.GlideArc9Twisted then
             plyTbl.GlideArc9Twisted = nil
             plyTbl.GlideArc9AimError = nil
+            plyTbl.GlideArc9PitchOffset = nil
             ResetTwist( ply )
 
             if CLIENT then
@@ -316,7 +360,9 @@ local function UpdateWeaponModeAim( ply )
 
     plyTbl.GlideArc9Twisted = true
 
-    local aimPitch = SetClampedPose( ply, "aim_pitch", Clamp( pitch, minPitch, maxPitch ) )
+    -- The closed loop's correction rides on top (clientside)
+    local pitchOffset = CLIENT and plyTbl.GlideArc9PitchOffset or 0
+    local aimPitch = SetClampedPose( ply, "aim_pitch", Clamp( pitch, minPitch, maxPitch ) + pitchOffset )
 
     -- The head rides on the spine like the arms do, so look the same way
     SetClampedPose( ply, "head_yaw", applied[1] )
@@ -338,8 +384,9 @@ local function UpdateWeaponModeAim( ply )
                 or ( name .. " missing" )
         end
 
-        print( string.format( "[GlideArc9 CL v" .. GlideArc9.VERSION .. "] pose | seat yaw %.1f pitch %.1f | %s | spine bones %d | gun off by %.1f deg",
-            yaw, pitch, table.concat( parts, " | " ), #GetCorrectionBones( ply ), plyTbl.GlideArc9AimError or -1 ) )
+        print( string.format( "[GlideArc9 CL v" .. GlideArc9.VERSION .. "] pose | seat yaw %.1f pitch %.1f | %s | aim_pitch %.1f (offset %.1f) | spine bones %d | gun off by %.1f deg (left/right %.1f, up/down %.1f)",
+            yaw, pitch, table.concat( parts, " | " ), aimPitch, pitchOffset, #GetCorrectionBones( ply ),
+            plyTbl.GlideArc9AimError or -1, plyTbl.GlideArc9TwistError or 0, plyTbl.GlideArc9ElevationError or 0 ) )
     end
 end
 

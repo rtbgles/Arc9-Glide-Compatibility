@@ -41,9 +41,10 @@ Both are loaded lazily, so addon load order does not matter.
   previous camera view comes back when you holster.
 - In third person, every seat (including car drivers) uses a seated pose that
   holds the weapon. Every frame, each player's game measures where the drawn gun
-  actually points and turns the spine until it's on your aim, so the gun follows
-  your crosshair on any player model, seated or leaning out. The spine can only
-  turn so far; past that the gun stays at the edge.
+  actually points, twists the spine (left/right) and raises or lowers the arms
+  (up/down) until it's on your aim, so the gun follows your crosshair on any
+  player model, seated or leaning out. The spine only twists, never folds, and
+  only so far; past that the gun stays at the edge.
 - Where you can aim and fire is limited to what your body can reach: up to
   `glide_arc9_aim_arc` left/right (110° by default) and about 50° up / 40° down
   when seated. Outside that the gun stops, firing is blocked and the HUD shows
