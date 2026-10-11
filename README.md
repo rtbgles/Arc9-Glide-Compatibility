@@ -49,6 +49,10 @@ Both are loaded lazily, so addon load order does not matter.
   `glide_arc9_aim_arc` left/right (110° by default) and about 50° up / 40° down
   when seated. Outside that the gun stops, firing is blocked and the HUD shows
   "CAN'T AIM THERE".
+- Inside an enclosed vehicle (cars, not motorcycles or ATVs), gunshots are
+  louder and echo like a small room for the people in that vehicle
+  (`glide_arc9_enclosed_boost`, `glide_arc9_enclosed_dsp`). People outside hear
+  them as usual, and leaning out of the window turns it off.
 - If something else takes over your view (looking through a GMod camera, for
   example), you keep aiming where you last aimed, so you can film yourself and
   see what other players see.
@@ -57,8 +61,9 @@ Both are loaded lazily, so addon load order does not matter.
 ## Leaning out of the window
 
 As a **passenger in weapon mode**, double-tap the move key toward your window to
-lean out of it, and again to lean back in: **A** in a left-side seat (e.g. the
-rear left), **D** in a right-side seat (e.g. the front passenger).
+lean out of it: **A** in a left-side seat (e.g. the rear left), **D** in a
+right-side seat (e.g. the front passenger). Press the **other** key once (D or
+A) to lean back in, or double-tap the first one again.
 
 - You're raised up in your seat and lean far (45°) out of the window, tilting
   around your hips, so your hips and legs stay inside the vehicle. Your upper
@@ -87,6 +92,8 @@ rear left), **D** in a right-side seat (e.g. the front passenger).
 | `glide_arc9_aim_arc` | `110` | How far left/right of the seat's forward you can aim and fire. Past it the gun stops and firing is blocked, so bullets never leave where the gun isn't pointing. |
 | `glide_arc9_lean_enabled` | `1` | Lets passengers in weapon mode lean out of their window. |
 | `glide_arc9_lean_aim_back` | `150` | While leaning out, how far back (degrees from forward) you can aim and fire on your side. |
+| `glide_arc9_enclosed_boost` | `0.7` | Gunshots inside enclosed vehicles get an extra layer of the same shot at this volume, so they're louder for the people inside. `0` turns it off. |
+| `glide_arc9_enclosed_dsp` | `2` | Room echo (DSP preset) for gunshots inside enclosed vehicles. `2` is a small metal room; `0` turns it off. |
 | `glide_arc9_blocked_actions` | `attack,attack_alt,switch_weapon,horn` | Comma-separated Glide actions that are ignored while in weapon mode. |
 
 ## Client convars / commands
@@ -95,7 +102,7 @@ rear left), **D** in a right-side seat (e.g. the front passenger).
 | --- | --- | --- |
 | `cl_glide_arc9_toggle_key` | `c` | Key to double-tap for weapon mode (a key name such as `c`, `g`, `mouse3`). |
 | `cl_glide_arc9_doubletap` | `1` | Turns double-tap detection on or off. |
-| `cl_glide_arc9_lean_doubletap` | `1` | Turns double-tap A / D (lean out) on or off. |
+| `cl_glide_arc9_lean_doubletap` | `1` | Turns the A / D lean keys (double-tap out, opposite key in) on or off. |
 | `cl_glide_arc9_doubletap_window` | `0.3` | Max seconds between the two taps. |
 | `cl_glide_arc9_firstperson` | `1` | Switch to first person while in weapon mode. |
 | `cl_glide_arc9_weapon_view` | `1` | Lets the weapon adjust the camera (ADS zoom, recoil). |
@@ -120,6 +127,9 @@ hook.Add( "GlideArc9_CanDrawHUD", "MyAddon", function() end )
 ```
 
 `GlideArc9.IsInWeaponMode( ply )` works on both realms.
+
+Vehicle authors can set `ENT.GlideArc9Enclosed = true` (or `false`) on a Glide
+vehicle class to say whether gunshots inside it should sound enclosed.
 
 ## Known limitations
 

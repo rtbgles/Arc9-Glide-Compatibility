@@ -9,11 +9,12 @@
 ]]
 
 GlideArc9 = GlideArc9 or {}
-GlideArc9.VERSION = "0.9.3"
+GlideArc9.VERSION = "0.10.0"
 
 AddCSLuaFile( "glide_arc9/sh_config.lua" )
 AddCSLuaFile( "glide_arc9/sh_aim.lua" )
 AddCSLuaFile( "glide_arc9/sh_anims.lua" )
+AddCSLuaFile( "glide_arc9/sh_sounds.lua" )
 AddCSLuaFile( "glide_arc9/client/cl_weapon_mode.lua" )
 AddCSLuaFile( "glide_arc9/client/cl_camera.lua" )
 AddCSLuaFile( "glide_arc9/client/cl_hud.lua" )
@@ -21,6 +22,7 @@ AddCSLuaFile( "glide_arc9/client/cl_hud.lua" )
 include( "glide_arc9/sh_config.lua" )
 include( "glide_arc9/sh_aim.lua" )
 include( "glide_arc9/sh_anims.lua" )
+include( "glide_arc9/sh_sounds.lua" )
 
 if SERVER then
     include( "glide_arc9/server/sv_weapon_mode.lua" )

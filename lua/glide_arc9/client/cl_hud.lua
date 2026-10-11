@@ -2,7 +2,7 @@ local cvarHud = CreateClientConVar( "cl_glide_arc9_hud", "1", true, false,
     "Show a small indicator while in weapon mode.", 0, 1 )
 
 language.Add( "glide_arc9.hud.weapon_mode", "WEAPON MODE" )
-language.Add( "glide_arc9.hud.leaning_out", "WEAPON MODE - LEANING OUT" )
+language.Add( "glide_arc9.hud.leaning_out", "WEAPON MODE - LEANING OUT (%s to lean in)" )
 language.Add( "glide_arc9.hud.holster_hint", "Double-tap %s to holster" )
 language.Add( "glide_arc9.hud.lean_hint", "Double-tap %s to holster, double-tap %s to lean out" )
 language.Add( "glide_arc9.hud.out_of_arc", "CAN'T AIM THERE" )
@@ -31,6 +31,15 @@ local HINT_DURATION = 5
 
 local titleText, leaningText, hintText, outOfArcText = "", "", "", ""
 local hintUntil = 0
+
+local DEFAULT_BIND_KEYS = {
+    ["+moveleft"] = "A",
+    ["+moveright"] = "D"
+}
+
+local function GetBindKeyName( bind )
+    return string.upper( input.LookupBinding( bind ) or DEFAULT_BIND_KEYS[bind] or bind )
+end
 
 local function DrawIndicator()
     if not cvarHud:GetBool() then return end
@@ -65,12 +74,13 @@ hook.Add( "GlideArc9_OnLocalWeaponModeChanged", "GlideArc9.HUD", function( inWea
     leaningText = language.GetPhrase( "glide_arc9.hud.leaning_out" )
     outOfArcText = language.GetPhrase( "glide_arc9.hud.out_of_arc" )
     local ply = LocalPlayer()
-    local _, leanBind = GlideArc9.GetLeanKey( ply )
+    local _, leanBind, _, backBind = GlideArc9.GetLeanKey( ply )
     local canLean = leanBind and GlideArc9.IsLeanEnabled() and ply:GlideGetSeatIndex() > 1
 
     if canLean then
-        local leanKey = string.upper( input.LookupBinding( leanBind ) or ( leanBind == "+moveleft" and "A" or "D" ) )
+        local leanKey = GetBindKeyName( leanBind )
         hintText = string.format( language.GetPhrase( "glide_arc9.hud.lean_hint" ), GlideArc9.GetToggleKeyName(), leanKey )
+        leaningText = string.format( leaningText, GetBindKeyName( backBind ) )
     else
         hintText = string.format( language.GetPhrase( "glide_arc9.hud.holster_hint" ), GlideArc9.GetToggleKeyName() )
     end

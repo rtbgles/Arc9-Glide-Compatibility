@@ -29,6 +29,12 @@ local cvarLeanAimBack = CreateConVar( "glide_arc9_lean_aim_back", "150", SERVER_
 -- While leaning out, how far players can aim across the front of the vehicle
 local LEAN_AIM_ACROSS = 30
 
+CreateConVar( "glide_arc9_enclosed_boost", "0.7", SERVER_FLAGS,
+    "Gunshots inside enclosed vehicles get an extra layer at this volume (0 turns it off).", 0, 1 )
+
+CreateConVar( "glide_arc9_enclosed_dsp", "2", SERVER_FLAGS,
+    "DSP preset (room echo) for gunshots inside enclosed vehicles. 0 turns it off; 2 is a small metal room.", 0, 140 )
+
 CreateConVar( "glide_arc9_blocked_actions", "attack,attack_alt,switch_weapon,horn", SERVER_FLAGS,
     "Comma-separated Glide input actions that are ignored while a player is in weapon mode." )
 

@@ -35,11 +35,17 @@ concommand.Add( "glide_arc9_toggle", function()
     GlideArc9.RequestToggle()
 end, nil, "Toggle weapon mode while seated in a Glide vehicle." )
 
-function GlideArc9.RequestLean()
+--- Ask to lean out (true) or back in (false). Without an argument, toggles.
+function GlideArc9.RequestLean( leanOut )
     local ply = LocalPlayer()
     if not IsValid( ply ) or not GlideArc9.IsInWeaponMode( ply ) then return end
 
+    if leanOut == nil then
+        leanOut = GlideArc9.GetLeanSide( ply ) == 0
+    end
+
     net.Start( GlideArc9.NET_LEAN )
+    net.WriteBool( leanOut )
     net.SendToServer()
 end
 
@@ -74,9 +80,11 @@ local swallowNextRelease = false
 local wasKeyDown = false
 local lastPolledTap = 0
 
--- Double-tapping the move key toward your window (A / D) to lean out
+-- Double-tapping the move key toward your window (A / D) to lean out,
+-- and pressing the other one to lean back in
 local wasLeanKeyDown = false
 local lastLeanTap = 0
+local wasBackKeyDown = false
 
 function GlideArc9.GetToggleKey()
     local code = input.GetKeyCode( cvarToggleKey:GetString() )
@@ -233,26 +241,40 @@ local function PollUnboundToggleKey( ply )
 end
 
 --- The movement key toward the player's window: left seats use move left
---- (A), right seats move right (D). Returns the IN_ key and its bind.
+--- (A), right seats move right (D). Returns the IN_ key and its bind, then
+--- the opposite key (leans back in) and its bind.
 function GlideArc9.GetLeanKey( ply )
     local side = GlideArc9.GetSeatSide( ply )
 
-    if side > 0 then return IN_MOVELEFT, "+moveleft" end
-    if side < 0 then return IN_MOVERIGHT, "+moveright" end
+    if side > 0 then return IN_MOVELEFT, "+moveleft", IN_MOVERIGHT, "+moveright" end
+    if side < 0 then return IN_MOVERIGHT, "+moveright", IN_MOVELEFT, "+moveleft" end
 end
 
 --- Passengers in weapon mode: double-tap the key toward their window to
---- lean out / back in. Passengers' movement keys do nothing in Glide, so
---- nothing needs blocking.
-local function CheckLeanDoubleTap( ply )
-    local key = GlideArc9.GetLeanKey( ply )
+--- lean out / back in, or press the opposite key once to lean back in.
+--- Passengers' movement keys do nothing in Glide, so nothing needs blocking.
+local function CheckLeanKeys( ply )
+    local key, _, backKey = GlideArc9.GetLeanKey( ply )
 
     local canLean = key
         and cvarLeanDoubleTap:GetBool()
         and GlideArc9.IsInWeaponMode( ply )
         and ply:GlideGetSeatIndex() > 1
+        and not IsTypingOrInMenu( ply )
 
-    local isDown = canLean and ply:KeyDown( key ) and not IsTypingOrInMenu( ply ) or false
+    -- The opposite key: one press leans back in
+    local isBackDown = canLean and ply:KeyDown( backKey ) or false
+
+    if isBackDown ~= wasBackKeyDown then
+        wasBackKeyDown = isBackDown
+
+        if isBackDown and GlideArc9.GetLeanSide( ply ) ~= 0 then
+            GlideArc9.RequestLean( false )
+        end
+    end
+
+    -- The key toward the window: double-tap toggles
+    local isDown = canLean and ply:KeyDown( key ) or false
     if isDown == wasLeanKeyDown then return end
 
     wasLeanKeyDown = isDown
@@ -274,6 +296,7 @@ local function ResetState()
     lastPolledTap = 0
     wasLeanKeyDown = false
     lastLeanTap = 0
+    wasBackKeyDown = false
 
     if wasInWeaponMode then
         wasInWeaponMode = false
@@ -303,7 +326,7 @@ local function OnThink()
         PollUnboundToggleKey( ply )
     end
 
-    CheckLeanDoubleTap( ply )
+    CheckLeanKeys( ply )
 end
 
 ----- Let the toggle key reach us before ARC9's bind hook

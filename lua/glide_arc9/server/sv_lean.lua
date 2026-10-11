@@ -244,25 +244,40 @@ local function StartLean( ply )
     SetLeanSide( ply, side )
 end
 
+--- Lean out (`leanOut` true) or back in (false). Asking for the state the
+--- player is already in does nothing, so a late or repeated request can't
+--- flip it the wrong way.
+function GlideArc9.SetLeaning( ply, leanOut )
+    local state = leans[ply]
+    local isLeaningOut = state and state.leaningOut or false
+
+    if leanOut == isLeaningOut then return end
+
+    if leanOut then
+        StartLean( ply )
+    else
+        StartLeaningIn( ply, state )
+    end
+end
+
 function GlideArc9.ToggleLean( ply )
     local state = leans[ply]
 
-    if state and state.leaningOut then
-        StartLeaningIn( ply, state )
-    else
-        StartLean( ply )
-    end
+    GlideArc9.SetLeaning( ply, not ( state and state.leaningOut ) )
 end
 
 net.Receive( GlideArc9.NET_LEAN, function( _, ply )
     if not IsValid( ply ) then return end
 
+    local leanOut = net.ReadBool()
+
+    -- Leaning back in is always allowed straight away
     local now = RealTime()
-    if ( ply.GlideArc9NextLean or 0 ) > now then return end
+    if leanOut and ( ply.GlideArc9NextLean or 0 ) > now then return end
 
     ply.GlideArc9NextLean = now + TOGGLE_COOLDOWN
 
-    GlideArc9.ToggleLean( ply )
+    GlideArc9.SetLeaning( ply, leanOut )
 end )
 
 ----- Per-tick update
