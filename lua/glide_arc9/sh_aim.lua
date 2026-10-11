@@ -188,6 +188,102 @@ function GlideArc9.IsAimInArc( ply )
     return true
 end
 
+if SERVER then
+    local AngleDifference = math.AngleDifference
+    local Abs = math.abs
+
+    local networkedAim = setmetatable( {}, { __mode = "k" } )
+
+    local function NetworkAim( ply, angles )
+        local last = networkedAim[ply]
+
+        if last
+            and Abs( AngleDifference( last[1], angles[1] ) ) < AIM_NETWORK_THRESHOLD
+            and Abs( AngleDifference( last[2], angles[2] ) ) < AIM_NETWORK_THRESHOLD
+        then
+            return
+        end
+
+        networkedAim[ply] = angles
+        ply:SetNW2Angle( NW_AIM, angles )
+    end
+
+    hook.Add( "SetupMove", "GlideArc9.Aim", function( ply, _, cmd )
+        local inWeaponMode = GlideArc9.IsInWeaponMode( ply )
+        local angles = inWeaponMode and cmd:GetViewAngles() or nil
+
+        aimAngles[ply] = angles
+        UpdateNearWall( ply, inWeaponMode )
+
+        if angles then
+            NetworkAim( ply, angles )
+        end
+    end )
+end
+
+if CLIENT then
+    local LocalPlayer = LocalPlayer
+
+    local function GetCameraAim()
+        local camera = Glide and Glide.Camera
+        if not camera or not camera.isActive then return end
+
+        return camera.lastAimPosAnglesFromEyes
+    end
+
+    hook.Add( "Think", "GlideArc9.Aim", function()
+        local localPly = LocalPlayer()
+
+        for _, ply in player.Iterator() do
+            local inWeaponMode = GlideArc9.IsInWeaponMode( ply )
+
+            if ply == localPly then
+                aimAngles[ply] = inWeaponMode and GetCameraAim() or nil
+                UpdateNearWall( ply, inWeaponMode )
+            else
+                aimAngles[ply] = inWeaponMode and ply:GetNW2Angle( NW_AIM, nil ) or nil
+            end
+        end
+    end )
+end
+
+----- EyeAngles / GetAimVector
+
+local PlayerMeta = FindMetaTable( "Player" )
+local EntityMeta = FindMetaTable( "Entity" )
+
+-- Keep the originals across Lua refreshes
+GlideArc9.OriginalEyeAngles = GlideArc9.OriginalEyeAngles
+    or rawget( PlayerMeta, "EyeAngles" )
+    or EntityMeta.EyeAngles
+
+GlideArc9.OriginalGetAimVector = GlideArc9.OriginalGetAimVector
+    or rawget( PlayerMeta, "GetAimVector" )
+
+local originalEyeAngles = GlideArc9.OriginalEyeAngles
+local originalGetAimVector = GlideArc9.OriginalGetAimVector
+
+function PlayerMeta:EyeAngles()
+    local angles = aimAngles[self]
+
+    if angles then
+        -- Return a copy, callers (ARC9 included) modify it in place
+        return Angle( angles[1], angles[2], angles[3] )
+    end
+
+    return originalEyeAngles( self )
+end
+
+function PlayerMeta:GetAimVector()
+    local angles = aimAngles[self]
+
+    if angles then
+        return angles:Forward()
+    end
+
+    return originalGetAimVector( self )
+end
+
 ----- Firing arc
 
 -- The gun's pose stops at the aim arc (see sh_anims.lua). Block shots past
