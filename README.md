@@ -25,6 +25,9 @@ Both are loaded lazily, so addon load order does not matter.
   and third person.
 - Bullets ignore the vehicle you're sitting in, and ARC9's "too close to a
   wall" check is off, so you can shoot from inside enclosed cars.
+- Weapons fired by anyone riding in a vehicle never damage that vehicle,
+  including grenades and rockets from their weapons. Shots from outside
+  still damage it.
 - The camera switches to first person so iron sights and scopes line up. ADS
   zoom, recoil kick and scoped mouse sensitivity come from the weapon. Your
   previous camera view comes back when you holster.
@@ -38,6 +41,7 @@ Both are loaded lazily, so addon load order does not matter.
 | `glide_arc9_allow_driver` | `1` | Lets drivers/pilots (seat 1) use weapon mode. |
 | `glide_arc9_allow_passengers` | `1` | Lets passengers use weapon mode. |
 | `glide_arc9_arc9_only` | `1` | Only ARC9 weapons can be held in weapon mode. Set to `0` to allow any weapon. |
+| `glide_arc9_protect_own_vehicle` | `1` | Weapons fired from inside a Glide vehicle don't damage that vehicle (body, wheels, turrets). Shots from outside still do. |
 | `glide_arc9_blocked_actions` | `attack,attack_alt,switch_weapon,horn` | Comma-separated Glide actions that are ignored while in weapon mode. |
 
 ## Client convars / commands

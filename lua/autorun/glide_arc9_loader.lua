@@ -21,6 +21,7 @@ include( "glide_arc9/sh_aim.lua" )
 
 if SERVER then
     include( "glide_arc9/server/sv_weapon_mode.lua" )
+    include( "glide_arc9/server/sv_damage.lua" )
 end
 
 if CLIENT then
