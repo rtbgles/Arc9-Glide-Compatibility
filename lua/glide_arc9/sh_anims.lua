@@ -89,8 +89,16 @@ local Clamp = math.Clamp
 local YAW_POSE_PARAMS = { "aim_yaw", "spine_yaw", "body_yaw" }
 local TWIST_POSE_PARAMS = { "spine_yaw", "body_yaw" }
 
+-- Nobody can aim straight behind them from a car seat. Past this the gun
+-- stays at the limit on that side instead of twisting the torso further.
+local MAX_TOTAL_YAW = 110
+
 -- [model] = { [poseName] = { min, max } or false }
 local poseRanges = {}
+
+local cvarDebug = GetConVar( "glide_arc9_debug" )
+local DEBUG_INTERVAL = 1
+local nextDebugPrint = 0
 
 local function GetPoseRange( ply, name )
     local model = ply:GetModel()
@@ -159,15 +167,17 @@ local function UpdateWeaponModeAim( ply )
     local yaw = NormalizeAngle( localAim[2] - SEAT_FORWARD_YAW )
     local pitch = NormalizeAngle( localAim[1] )
 
-    local remaining = yaw
+    local remaining = Clamp( yaw, -MAX_TOTAL_YAW, MAX_TOTAL_YAW )
     local twist = 0
+    local applied = {}
 
     for i, name in ipairs( YAW_POSE_PARAMS ) do
-        local applied = SetClampedPose( ply, name, remaining )
-        remaining = remaining - applied
+        local value = SetClampedPose( ply, name, remaining )
+        remaining = remaining - value
+        applied[i] = value
 
         if i > 1 then
-            twist = twist + applied
+            twist = twist + value
         end
     end
 
@@ -180,6 +190,22 @@ local function UpdateWeaponModeAim( ply )
 
     if CLIENT then
         ply:InvalidateBoneCache()
+    end
+
+    if cvarDebug and cvarDebug:GetBool() and CLIENT and ply == LocalPlayer() and RealTime() > nextDebugPrint then
+        nextDebugPrint = RealTime() + DEBUG_INTERVAL
+
+        local parts = {}
+
+        for i, name in ipairs( YAW_POSE_PARAMS ) do
+            local range = GetPoseRange( ply, name )
+
+            parts[i] = range and string.format( "%s %.1f [%.0f..%.0f]", name, applied[i], range[1], range[2] )
+                or ( name .. " missing" )
+        end
+
+        print( string.format( "[GlideArc9 CL] pose | target yaw %.1f pitch %.1f | %s | head %.1f",
+            yaw, pitch, table.concat( parts, " | " ), yaw - twist ) )
     end
 end
 

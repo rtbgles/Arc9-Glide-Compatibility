@@ -9,7 +9,7 @@
 ]]
 
 GlideArc9 = GlideArc9 or {}
-GlideArc9.VERSION = "0.6.2"
+GlideArc9.VERSION = "0.6.3"
 
 AddCSLuaFile( "glide_arc9/sh_config.lua" )
 AddCSLuaFile( "glide_arc9/sh_aim.lua" )
