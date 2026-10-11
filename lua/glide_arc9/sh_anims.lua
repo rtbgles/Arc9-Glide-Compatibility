@@ -86,6 +86,9 @@ local Clamp = math.Clamp
 local YAW_POSE_PARAMS = { "aim_yaw", "spine_yaw", "body_yaw" }
 local TWIST_POSE_PARAMS = { "spine_yaw", "body_yaw" }
 
+-- How far the body turns from the (already turned) seat while leaning out
+local LEAN_POSE_ARC = 120
+
 -- [model] = { [poseName] = { min, max } or false }
 local poseRanges = {}
 
@@ -232,7 +235,9 @@ local function UpdateWeaponModeAim( ply )
 
     -- Nobody can aim straight behind them from a car seat. Past the aim arc
     -- the gun stays at the limit on that side (and firing is blocked).
-    local arc = GlideArc9.GetAimArc()
+    -- While leaning out, the seat turns with the aim (sv_lean.lua), so the
+    -- body only has to cover what's left.
+    local arc = GlideArc9.GetLeanSide( ply ) ~= 0 and LEAN_POSE_ARC or GlideArc9.GetAimArc()
     local remaining = Clamp( yaw, -arc, arc )
     local twist = 0
     local applied = {}

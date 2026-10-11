@@ -9,7 +9,7 @@
 ]]
 
 GlideArc9 = GlideArc9 or {}
-GlideArc9.VERSION = "0.7.0"
+GlideArc9.VERSION = "0.8.0"
 
 AddCSLuaFile( "glide_arc9/sh_config.lua" )
 AddCSLuaFile( "glide_arc9/sh_aim.lua" )
@@ -25,6 +25,7 @@ include( "glide_arc9/sh_anims.lua" )
 if SERVER then
     include( "glide_arc9/server/sv_weapon_mode.lua" )
     include( "glide_arc9/server/sv_damage.lua" )
+    include( "glide_arc9/server/sv_lean.lua" )
 end
 
 if CLIENT then

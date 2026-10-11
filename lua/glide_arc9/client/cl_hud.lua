@@ -2,7 +2,9 @@ local cvarHud = CreateClientConVar( "cl_glide_arc9_hud", "1", true, false,
     "Show a small indicator while in weapon mode.", 0, 1 )
 
 language.Add( "glide_arc9.hud.weapon_mode", "WEAPON MODE" )
+language.Add( "glide_arc9.hud.leaning_out", "WEAPON MODE - LEANING OUT" )
 language.Add( "glide_arc9.hud.holster_hint", "Double-tap %s to holster" )
+language.Add( "glide_arc9.hud.lean_hint", "Double-tap %s to holster, double-tap %s to lean out" )
 language.Add( "glide_arc9.hud.out_of_arc", "CAN'T AIM THAT FAR" )
 
 surface.CreateFont( "GlideArc9.Indicator", {
@@ -27,7 +29,7 @@ local WARNING_OFFSET_Y = 0.04
 
 local HINT_DURATION = 5
 
-local titleText, hintText, outOfArcText = "", "", ""
+local titleText, leaningText, hintText, outOfArcText = "", "", "", ""
 local hintUntil = 0
 
 local function DrawIndicator()
@@ -42,7 +44,8 @@ local function DrawIndicator()
             TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, COLOR_OUTLINE )
     end
 
-    local _, h = draw.SimpleTextOutlined( titleText, "GlideArc9.Indicator", x, y, COLOR_TEXT,
+    local title = GlideArc9.GetLeanSide( LocalPlayer() ) ~= 0 and leaningText or titleText
+    local _, h = draw.SimpleTextOutlined( title, "GlideArc9.Indicator", x, y, COLOR_TEXT,
         TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, COLOR_OUTLINE )
 
     if RealTime() > hintUntil then return end
@@ -59,8 +62,17 @@ hook.Add( "GlideArc9_OnLocalWeaponModeChanged", "GlideArc9.HUD", function( inWea
 
     -- Build the strings once here, not every frame
     titleText = language.GetPhrase( "glide_arc9.hud.weapon_mode" )
+    leaningText = language.GetPhrase( "glide_arc9.hud.leaning_out" )
     outOfArcText = language.GetPhrase( "glide_arc9.hud.out_of_arc" )
-    hintText = string.format( language.GetPhrase( "glide_arc9.hud.holster_hint" ), GlideArc9.GetToggleKeyName() )
+    local ply = LocalPlayer()
+    local canLean = GlideArc9.IsLeanEnabled() and ply:GlideGetSeatIndex() > 1
+
+    if canLean then
+        local rightKey = string.upper( input.LookupBinding( "+moveright" ) or "D" )
+        hintText = string.format( language.GetPhrase( "glide_arc9.hud.lean_hint" ), GlideArc9.GetToggleKeyName(), rightKey )
+    else
+        hintText = string.format( language.GetPhrase( "glide_arc9.hud.holster_hint" ), GlideArc9.GetToggleKeyName() )
+    end
     hintUntil = RealTime() + HINT_DURATION
 
     hook.Add( "HUDPaint", "GlideArc9.Indicator", DrawIndicator )

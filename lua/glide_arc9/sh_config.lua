@@ -1,5 +1,7 @@
 GlideArc9.NW_WEAPON_MODE = "GlideArc9.WeaponMode"
+GlideArc9.NW_LEAN = "GlideArc9.Lean"
 GlideArc9.NET_TOGGLE = "glide_arc9.toggle"
+GlideArc9.NET_LEAN = "glide_arc9.lean"
 
 local SERVER_FLAGS = { FCVAR_ARCHIVE, FCVAR_REPLICATED, FCVAR_NOTIFY }
 
@@ -18,14 +20,35 @@ local cvarArc9Only = CreateConVar( "glide_arc9_arc9_only", "1", SERVER_FLAGS,
 local cvarAimArc = CreateConVar( "glide_arc9_aim_arc", "110", SERVER_FLAGS,
     "How far (degrees, left or right of the seat's forward) players can aim and fire in weapon mode.", 30, 180 )
 
+local cvarLeanEnabled = CreateConVar( "glide_arc9_lean_enabled", "1", SERVER_FLAGS,
+    "Let passengers in weapon mode lean out of their window (double-tap D).", 0, 1 )
+
+local cvarLeanAimArc = CreateConVar( "glide_arc9_lean_aim_arc", "120", SERVER_FLAGS,
+    "While leaning out, how far (degrees) from straight out of the window players can aim and fire.", 30, 180 )
+
 CreateConVar( "glide_arc9_blocked_actions", "attack,attack_alt,switch_weapon,horn", SERVER_FLAGS,
     "Comma-separated Glide input actions that are ignored while a player is in weapon mode." )
 
 local GetNW2Bool = FindMetaTable( "Entity" ).GetNW2Bool
+local GetNW2Int = FindMetaTable( "Entity" ).GetNW2Int
 local NW_WEAPON_MODE = GlideArc9.NW_WEAPON_MODE
+local NW_LEAN = GlideArc9.NW_LEAN
 
 function GlideArc9.GetAimArc()
     return cvarAimArc:GetFloat()
+end
+
+function GlideArc9.IsLeanEnabled()
+    return cvarLeanEnabled:GetBool()
+end
+
+function GlideArc9.GetLeanAimArc()
+    return cvarLeanAimArc:GetFloat()
+end
+
+--- Which window this player is leaning out of: 1 = left, -1 = right, 0 = not leaning.
+function GlideArc9.GetLeanSide( ply )
+    return GetNW2Int( ply, NW_LEAN, 0 )
 end
 
 function GlideArc9.IsEnabled()

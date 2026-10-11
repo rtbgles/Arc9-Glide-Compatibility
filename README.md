@@ -45,6 +45,23 @@ Both are loaded lazily, so addon load order does not matter.
   a side window. Other players see this too.
 - When you get out of the vehicle you keep holding the weapon you were using.
 
+## Leaning out of the window
+
+As a **passenger in weapon mode**, **double-tap D** (your move-right key) to lean
+out of your window, and again to lean back in. You lean out of the window on
+your side of the car.
+
+- Your seat slides out to the door, rises a little and tilts toward the window,
+  and your body turns to follow your aim. You really are outside the window, so
+  where you shoot from and where you can be hit match what other players see.
+- While leaning you can aim anywhere on your side of the car, from the front to
+  the back (`glide_arc9_lean_aim_arc`).
+- You pull back in automatically when the window gets blocked (walls, other
+  cars), and when you holster, get out or die.
+- Leaning players take explosion damage (Glide normally blocks it for people in
+  vehicles).
+- Not available to drivers, on motorcycles, or on seats that don't face forward.
+
 ## Server convars
 
 | Convar | Default | Description |
@@ -56,6 +73,8 @@ Both are loaded lazily, so addon load order does not matter.
 | `glide_arc9_protect_own_vehicle` | `1` | Weapons fired from inside a Glide vehicle don't damage that vehicle (body, wheels, turrets). Shots from outside still do. |
 | `glide_arc9_debug` | `0` | Prints aim, bullet and vehicle angles to the console when firing in weapon mode. With `developer 1` it also draws each shot's path (red = server, blue = client) and Glide's aim point (green cross). Use this when reporting aim bugs. |
 | `glide_arc9_aim_arc` | `110` | How far left/right of the seat's forward you can aim and fire. Past it the gun stops and firing is blocked, so bullets never leave where the gun isn't pointing. |
+| `glide_arc9_lean_enabled` | `1` | Lets passengers in weapon mode lean out of their window. |
+| `glide_arc9_lean_aim_arc` | `120` | While leaning out, how far from straight out of the window you can aim and fire. |
 | `glide_arc9_blocked_actions` | `attack,attack_alt,switch_weapon,horn` | Comma-separated Glide actions that are ignored while in weapon mode. |
 
 ## Client convars / commands
@@ -64,10 +83,12 @@ Both are loaded lazily, so addon load order does not matter.
 | --- | --- | --- |
 | `cl_glide_arc9_toggle_key` | `c` | Key to double-tap for weapon mode (a key name such as `c`, `g`, `mouse3`). |
 | `cl_glide_arc9_doubletap` | `1` | Turns double-tap detection on or off. |
+| `cl_glide_arc9_lean_doubletap` | `1` | Turns double-tap D (lean out) on or off. |
 | `cl_glide_arc9_doubletap_window` | `0.3` | Max seconds between the two taps. |
 | `cl_glide_arc9_firstperson` | `1` | Switch to first person while in weapon mode. |
 | `cl_glide_arc9_weapon_view` | `1` | Lets the weapon adjust the camera (ADS zoom, recoil). |
 | `cl_glide_arc9_hud` | `1` | Shows the "WEAPON MODE" indicator. |
+| `glide_arc9_lean` | – | Console command to lean out / back in. Bindable, e.g. `bind x glide_arc9_lean`. |
 | `glide_arc9_toggle` | – | Console command to toggle weapon mode. You can bind it to a key, e.g. `bind x glide_arc9_toggle`. |
 
 ## Hooks for developers

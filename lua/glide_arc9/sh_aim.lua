@@ -97,7 +97,21 @@ function GlideArc9.GetSeatAimAngles( ply )
 end
 
 --- Is the player aiming somewhere their gun can visibly point?
+--- Seated: within the aim arc of the seat's forward direction.
+--- Leaning out: within the lean arc of straight out of the window.
 function GlideArc9.IsAimInArc( ply )
+    local side = GlideArc9.GetLeanSide( ply )
+
+    if side ~= 0 then
+        local aim = aimAngles[ply]
+        local vehicle = ply:GlideGetVehicle()
+        if not aim or not IsValid( vehicle ) then return true end
+
+        local yaw = vehicle:WorldToLocalAngles( aim )[2]
+
+        return math.abs( NormalizeAngle( yaw - side * 90 ) ) <= GlideArc9.GetLeanAimArc()
+    end
+
     local yaw = GlideArc9.GetSeatAimAngles( ply )
     if not yaw then return true end
 
