@@ -10,8 +10,11 @@
        instead:
        - server: read from the usercmd, exactly what Glide sent
        - local client: read from Glide's camera, the value Glide puts in
-         the usercmd (SetupMove is not reliable clientside in vehicles)
+         the usercmd (SetupMove may not run clientside in vehicles)
        - other clients: networked from the server, used for animations
+       As a safety net, every shot leaving the gun is also re-aimed at the
+       point Glide's camera is looking at (the same point Glide's turrets
+       use), keeping the shot's spread/recoil offset.
 
     2. The vehicle's own body
        In enclosed vehicles the player's eyes are inside the vehicle's
@@ -175,10 +178,20 @@ end
 local cvarDebug = CreateConVar( "glide_arc9_debug", "0", { FCVAR_ARCHIVE, FCVAR_REPLICATED },
     "Print aim/bullet directions to the console when firing in weapon mode.", 0, 1 )
 
+local WorldToLocal = WorldToLocal
+local LocalToWorld = LocalToWorld
+
+-- Only shots leaving the gun get re-aimed. ARC9 also fires short bullets
+-- from where a physical bullet hits something, those must be left alone.
+local MAX_MUZZLE_DISTANCE_SQR = 48 * 48
+
+-- Ignore aim points closer than this to the muzzle
+local MIN_AIM_DISTANCE_SQR = 16 * 16
+
 local DEBUG_INTERVAL = 0.25
 local nextDebugPrint = 0
 
-local function DebugShot( ply, kind, direction )
+local function DebugShot( ply, kind, before, after )
     if not cvarDebug:GetBool() then return end
 
     local now = RealTime()
@@ -186,9 +199,10 @@ local function DebugShot( ply, kind, direction )
 
     nextDebugPrint = now + DEBUG_INTERVAL
 
-    print( string.format( "[GlideArc9 %s] %s | aim %s | engine eyes %s | bullet %s",
-        SERVER and "SV" or "CL", kind, tostring( aimAngles[ply] ),
-        tostring( originalEyeAngles( ply ) ), tostring( direction:Angle() ) ) )
+    print( string.format( "[GlideArc9 %s] %s | aim %s | eyes %s | engine eyes %s | bullet %s -> %s",
+        SERVER and "SV" or "CL", kind, tostring( aimAngles[ply] ), tostring( ply:EyeAngles() ),
+        tostring( originalEyeAngles( ply ) ), tostring( before:Angle() ),
+        after and tostring( after:Angle() ) or "unchanged" ) )
 end
 
 local function GetWeaponModeVehicle( ply )
@@ -199,37 +213,91 @@ local function GetWeaponModeVehicle( ply )
     if IsValid( vehicle ) then return vehicle end
 end
 
+--- The point Glide's camera is aiming at: the same data Glide's own
+--- turrets use, on the server (from the usercmd) and the local client.
+local function GetAimPos( ply )
+    local aimPos
+
+    if SERVER then
+        aimPos = isfunction( ply.GlideGetAimPos ) and ply:GlideGetAimPos()
+
+    elseif ply == LocalPlayer() then
+        local camera = Glide and Glide.Camera
+        aimPos = camera and camera.isActive and camera.lastAimPos
+    end
+
+    if not isvector( aimPos ) or aimPos:IsZero() then return end
+
+    return aimPos
+end
+
+--- Re-aim a shot leaving the gun at `src` so it goes to Glide's aim point.
+--- The shot's offset from the eye angles (spread, recoil, sway) is kept.
+--- Returns the new direction, or nil to leave the shot alone.
+local function CorrectShotDirection( ply, src, dir )
+    if src:DistToSqr( ply:EyePos() ) > MAX_MUZZLE_DISTANCE_SQR then return end
+
+    local aimPos = GetAimPos( ply )
+    if not aimPos then return end
+
+    local toAim = aimPos - src
+    if toAim:LengthSqr() < MIN_AIM_DISTANCE_SQR then return end
+
+    local localDir = WorldToLocal( dir, angle_zero, vector_origin, ply:EyeAngles() )
+    local newDir = LocalToWorld( localDir, angle_zero, vector_origin, toAim:Angle() )
+
+    return newDir
+end
+
 -- Hitscan bullets. The shooter is always skipped by the engine, and ARC9
 -- only sets the (non-solid) seat here, so we can replace it with the vehicle.
-hook.Add( "EntityFireBullets", "GlideArc9.IgnoreOwnVehicle", function( entity, data )
+hook.Add( "EntityFireBullets", "GlideArc9.InVehicleShots", function( entity, data )
     local vehicle = GetWeaponModeVehicle( entity )
     if not vehicle then return end
 
     data.IgnoreEntity = vehicle
 
-    if data.Dir then
-        DebugShot( entity, "hitscan", data.Dir )
+    if isvector( data.Src ) and isvector( data.Dir ) then
+        local newDir = CorrectShotDirection( entity, data.Src, data.Dir )
+
+        DebugShot( entity, "hitscan", data.Dir, newDir )
+
+        if newDir then
+            data.Dir = newDir
+        end
     end
 
     return true
 end )
 
 -- ARC9 physical bullets trace with their own filter table.
-hook.Add( "ARC9_HookP_ModifyNewBullet", "GlideArc9.IgnoreOwnVehicle", function( weapon, bullet )
+hook.Add( "ARC9_HookP_ModifyNewBullet", "GlideArc9.InVehicleShots", function( weapon, bullet )
     local owner = weapon:GetOwner()
     local vehicle = GetWeaponModeVehicle( owner )
-    if not vehicle or not istable( bullet.Filter ) then return end
+    if not vehicle then return end
 
-    local filter = bullet.Filter
-    filter[#filter + 1] = vehicle
+    if istable( bullet.Filter ) then
+        local filter = bullet.Filter
+        filter[#filter + 1] = vehicle
 
-    if isvector( bullet.Vel ) then
-        DebugShot( owner, "physbullet", bullet.Vel )
+        local seat = owner:GetVehicle()
+
+        if IsValid( seat ) then
+            filter[#filter + 1] = seat
+        end
     end
 
-    local seat = owner:GetVehicle()
+    local vel = bullet.Vel
+    if not isvector( bullet.Pos ) or not isvector( vel ) then return end
 
-    if IsValid( seat ) then
-        filter[#filter + 1] = seat
+    local speed = vel:Length()
+    if speed == 0 then return end
+
+    local newDir = CorrectShotDirection( owner, bullet.Pos, vel / speed )
+
+    DebugShot( owner, "physbullet", vel, newDir )
+
+    if newDir then
+        bullet.Vel = newDir * speed
     end
 end )

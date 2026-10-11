@@ -6,6 +6,13 @@ seated in a **Glide** vehicle.
 **Double-tap CTRL** (your `+duck` key) while seated to enter **weapon mode**.
 Double-tap again to holster.
 
+## Installing / updating
+
+Copy the whole repository folder into `garrysmod/addons/` (for example as
+`garrysmod/addons/arc9glide/`). When updating, **delete the old folder first**
+and copy the new one in, so no files are missing or left over. On map load the
+console prints `[Glide x ARC9] Loaded version ...` for the client and server.
+
 ## Requirements
 
 - [Glide // Styled's Vehicle Base](https://github.com/StyledStrike/gmod-glide)

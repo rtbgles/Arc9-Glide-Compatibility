@@ -9,6 +9,7 @@
 ]]
 
 GlideArc9 = GlideArc9 or {}
+GlideArc9.VERSION = "0.6.0"
 
 AddCSLuaFile( "glide_arc9/sh_config.lua" )
 AddCSLuaFile( "glide_arc9/sh_aim.lua" )
@@ -31,3 +32,5 @@ if CLIENT then
     include( "glide_arc9/client/cl_camera.lua" )
     include( "glide_arc9/client/cl_hud.lua" )
 end
+
+print( "[Glide x ARC9] Loaded version " .. GlideArc9.VERSION )
