@@ -2,9 +2,10 @@
     Leaning out of the window (passengers in weapon mode, double-tap the
     move key toward their window: A on the left, D on the right).
 
-    The passenger's seat is moved: slid toward the door, raised a little and
-    tilted toward the window. The seat keeps facing forward, so the legs
-    stay in the footwell and only the upper body turns to aim (sh_anims.lua).
+    The passenger's seat is moved: raised up and tilted far toward the
+    window around the hips, so the hips stay in the seat, the legs swing into
+    the footwell and the upper body leans out of the window. The seat keeps
+    facing forward and only the upper body turns to aim (sh_anims.lua).
     The player is attached to the seat, so their eyes, the bullets' origin
     and their hit boxes really are out of the window, which is exactly what
     other players see. The seat goes back to where Glide put it when the lean
@@ -24,17 +25,21 @@ local NW_LEAN = GlideArc9.NW_LEAN
 local LEAN_TIME = 0.35
 
 -- Degrees the passenger tilts toward the window
-local LEAN_TILT = 30
+local LEAN_TILT = 45
 
--- Units the seat moves up, so the shoulders clear the window sill
-local LEAN_RAISE = 14
+-- The tilt pivots this high above the seat's origin (around the hips),
+-- so the hips stay put while the upper body swings out
+local LEAN_PIVOT_HEIGHT = 14
 
--- The seat stops this far inside the vehicle's side, so the hips stay
--- tucked in and the tilt puts the shoulders out of the window
-local LEAN_INSET = 12
+-- Units the passenger is raised up in the seat
+local LEAN_RAISE = 18
 
--- Most the seat may move sideways (wide vehicles, mirrors in the bounds)
-local MAX_LEAN_SIDEWAYS = 18
+-- A small slide toward the door, stopping this far inside the vehicle's
+-- side, so the hips stay inside and the tilt puts the shoulders out
+local LEAN_INSET = 16
+
+-- Most the seat may slide sideways (wide vehicles, mirrors in the bounds)
+local MAX_LEAN_SIDEWAYS = 8
 
 -- Only seats facing within this many degrees of forward can lean
 local MAX_FACING_ERROR = 30
@@ -47,7 +52,7 @@ local ROOM_CHECK_INTERVAL = 0.2
 local ROOM_HULL_MAX = Vector( 6, 6, 6 )
 local ROOM_HULL_MIN = -ROOM_HULL_MAX
 local HEAD_HEIGHT = 30
-local HEAD_OUT = 16
+local HEAD_MARGIN = 8
 
 local TOGGLE_COOLDOWN = 0.4
 
@@ -97,11 +102,25 @@ local function GetLeanSetup( ply )
     return { vehicle = vehicle, seat = seat, basePos = basePos, baseAng = baseAng, side = side }
 end
 
-local function GetLeanedPos( vehicle, basePos, side )
+--- The slide and raise applied on top of the tilt, fully leaned out.
+local function GetLeanOffset( vehicle, basePos, side )
     local edge = side > 0 and vehicle:OBBMaxs()[2] or -vehicle:OBBMins()[2]
     local sideways = Clamp( edge - math.abs( basePos[2] ) - LEAN_INSET, 0, MAX_LEAN_SIDEWAYS )
 
-    return basePos + Vector( 0, side * sideways, LEAN_RAISE )
+    return Vector( 0, side * sideways, LEAN_RAISE )
+end
+
+--- Where a point attached to the seat (vehicle-local, unleaned) ends up
+--- when leaned out by `amount` (0..1): tilted around the hip pivot, then
+--- slid and raised.
+local function LeanPoint( state, point, amount )
+    local rot = Angle()
+    rot:RotateAroundAxis( state.tiltAxis, LEAN_TILT * amount )
+
+    local offset = point - state.pivot
+    offset:Rotate( rot )
+
+    return state.pivot + offset + state.leanOffset * amount
 end
 
 local function RoomTraceFilter( vehicle )
@@ -118,9 +137,11 @@ local function HasRoom( state )
     local basePos = state.basePos
     local side = state.side
 
+    local head = LeanPoint( state, basePos + Vector( 0, 0, HEAD_HEIGHT ), 1 )
+
     local tr = util.TraceHull( {
         start = vehicle:LocalToWorld( Vector( basePos[1], 0, basePos[3] + HEAD_HEIGHT ) ),
-        endpos = vehicle:LocalToWorld( state.leanedPos + Vector( 0, side * HEAD_OUT, HEAD_HEIGHT ) ),
+        endpos = vehicle:LocalToWorld( head + Vector( 0, side * HEAD_MARGIN, 0 ) ),
         mins = ROOM_HULL_MIN,
         maxs = ROOM_HULL_MAX,
         mask = MASK_PLAYERSOLID,
@@ -168,10 +189,11 @@ local function UpdateLean( ply, state, dt )
     local f = state.fraction
     local eased = f * f * ( 3 - 2 * f )
 
+    -- Rotate the seat rigidly around the hip pivot: position and angles
     local ang = Angle( state.baseAng )
     ang:RotateAroundAxis( state.tiltAxis, LEAN_TILT * eased )
 
-    state.seat:SetLocalPos( LerpVector( eased, state.basePos, state.leanedPos ) )
+    state.seat:SetLocalPos( LeanPoint( state, state.basePos, eased ) )
     state.seat:SetLocalAngles( ang )
 end
 
@@ -202,7 +224,8 @@ local function StartLean( ply )
         side = side,
         basePos = setup.basePos,
         baseAng = setup.baseAng,
-        leanedPos = GetLeanedPos( setup.vehicle, setup.basePos, side ),
+        pivot = setup.basePos + Vector( 0, 0, LEAN_PIVOT_HEIGHT ),
+        leanOffset = GetLeanOffset( setup.vehicle, setup.basePos, side ),
 
         -- Tilting around ( up x outward ) moves the head toward the window
         tiltAxis = Vector( -side, 0, 0 ),

@@ -51,10 +51,10 @@ As a **passenger in weapon mode**, double-tap the move key toward your window to
 lean out of it, and again to lean back in: **A** in a left-side seat (e.g. the
 rear left), **D** in a right-side seat (e.g. the front passenger).
 
-- Your seat slides toward the door, rises a little and tilts toward the window.
-  Your legs stay forward in the footwell and your upper body turns to aim. You
-  really are out of the window, so where you shoot from and where you can be
-  hit match what other players see.
+- You're raised up in your seat and lean far (45°) out of the window, tilting
+  around your hips, so your hips and legs stay inside the vehicle. Your upper
+  body turns to aim. You really are out of the window, so where you shoot from
+  and where you can be hit match what other players see.
 - While leaning you can aim forward and back on your side of the car (up to
   `glide_arc9_lean_aim_back`, 150° from forward), and a little across the front.
 - You pull back in automatically when the window gets blocked (walls, other
