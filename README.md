@@ -40,9 +40,14 @@ Both are loaded lazily, so addon load order does not matter.
   zoom, recoil kick and scoped mouse sensitivity come from the weapon. Your
   previous camera view comes back when you holster.
 - In third person, every seat (including car drivers) uses a seated pose that
-  holds the weapon. The arms follow your aim, and the torso twists (up to about
-  110° either way) when the arms alone can't turn far enough, e.g. to shoot out
-  a side window. Other players see this too.
+  holds the weapon. Every frame, each player's game measures where the drawn gun
+  actually points and turns the spine until it's on your aim, so the gun follows
+  your crosshair on any player model, seated or leaning out. The spine can only
+  turn so far; past that the gun stays at the edge.
+- Where you can aim and fire is limited to what your body can reach: up to
+  `glide_arc9_aim_arc` left/right (110° by default) and about 50° up / 40° down
+  when seated. Outside that the gun stops, firing is blocked and the HUD shows
+  "CAN'T AIM THERE".
 - When you get out of the vehicle you keep holding the weapon you were using.
 
 ## Leaning out of the window
@@ -56,7 +61,9 @@ rear left), **D** in a right-side seat (e.g. the front passenger).
   body turns to aim. You really are out of the window, so where you shoot from
   and where you can be hit match what other players see.
 - While leaning you can aim forward and back on your side of the car (up to
-  `glide_arc9_lean_aim_back`, 150° from forward), and a little across the front.
+  `glide_arc9_lean_aim_back`, 150° from forward), a little across the front,
+  and about 70° up / 60° down. You can't fire into your own vehicle (down
+  through the roof or bonnet).
 - You pull back in automatically when the window gets blocked (walls, other
   cars), and when you holster, get out or die.
 - Leaning players take explosion damage (Glide normally blocks it for people in
@@ -125,9 +132,7 @@ hook.Add( "GlideArc9_CanDrawHUD", "MyAddon", function() end )
 - **Singleplayer:** shots have been seen going backwards in singleplayer
   (still being looked into). Multiplayer, including a local listen server,
   works.
-- The torso twist that turns the gun is drawn on each player's screen only.
-  The server's hit boxes for a twisted player's arms can be a little off from
+- The spine turn that points the gun is drawn on each player's screen only.
+  The server's hit boxes for a turned player's arms can be a little off from
   what others see (head and chest barely move).
-- Up/down aim isn't limited, so aiming steeply down from an enclosed car shoots
-  through the door.
 - Bullets can hit other people riding in the same vehicle.

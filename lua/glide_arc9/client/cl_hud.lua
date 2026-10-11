@@ -5,7 +5,7 @@ language.Add( "glide_arc9.hud.weapon_mode", "WEAPON MODE" )
 language.Add( "glide_arc9.hud.leaning_out", "WEAPON MODE - LEANING OUT" )
 language.Add( "glide_arc9.hud.holster_hint", "Double-tap %s to holster" )
 language.Add( "glide_arc9.hud.lean_hint", "Double-tap %s to holster, double-tap %s to lean out" )
-language.Add( "glide_arc9.hud.out_of_arc", "CAN'T AIM THAT FAR" )
+language.Add( "glide_arc9.hud.out_of_arc", "CAN'T AIM THERE" )
 
 surface.CreateFont( "GlideArc9.Indicator", {
     font = "Roboto",

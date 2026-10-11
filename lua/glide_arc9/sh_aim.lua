@@ -96,123 +96,96 @@ function GlideArc9.GetSeatAimAngles( ply )
     return NormalizeAngle( localAim[2] - SEAT_FORWARD_YAW ), NormalizeAngle( localAim[1] )
 end
 
---- Seat-relative yaw range (min, max) the player's gun can visibly reach.
-function GlideArc9.GetAimYawRange( ply )
+----- Aim limits
+
+-- Up/down limits (degrees, relative to the vehicle, negative is up)
+local SEATED_PITCH_UP = -50
+local SEATED_PITCH_DOWN = 40
+local LEAN_PITCH_UP = -70
+local LEAN_PITCH_DOWN = 60
+
+-- While leaning out, shots must clear the player's own vehicle this far out
+local LEAN_BLOCK_CHECK_DISTANCE = 150
+
+-- Seat-local angles a Glide seat's occupant faces
+local SEAT_FORWARD = Angle( 0, SEAT_FORWARD_YAW, 0 )
+
+--- Aim relative to the vehicle: yaw from the direction the player faces
+--- (positive is to the left) and pitch (negative is up). Also returns the
+--- facing yaw (vehicle-local) and the vehicle. Unlike the seat's frame,
+--- this doesn't change when the seat tilts while leaning out.
+function GlideArc9.GetVehicleAimAngles( ply )
+    local aim = aimAngles[ply]
+    if not aim then return end
+
+    local seat = ply:GetVehicle()
+    local vehicle = ply:GlideGetVehicle()
+    if not IsValid( seat ) or not IsValid( vehicle ) then return end
+
+    local facingYaw = vehicle:WorldToLocalAngles( seat:LocalToWorldAngles( SEAT_FORWARD ) )[2]
+    local localAim = vehicle:WorldToLocalAngles( aim )
+
+    return NormalizeAngle( localAim[2] - facingYaw ), NormalizeAngle( localAim[1] ), facingYaw, vehicle
+end
+
+--- How far the player can aim (relative to the vehicle, see above):
+--- minYaw, maxYaw, minPitch, maxPitch.
+function GlideArc9.GetAimLimits( ply )
     local side = GlideArc9.GetLeanSide( ply )
 
     if side ~= 0 then
-        return GlideArc9.GetLeanYawRange( side )
+        local minYaw, maxYaw = GlideArc9.GetLeanYawRange( side )
+
+        return minYaw, maxYaw, LEAN_PITCH_UP, LEAN_PITCH_DOWN
     end
 
     local arc = GlideArc9.GetAimArc()
 
-    return -arc, arc
+    return -arc, arc, SEATED_PITCH_UP, SEATED_PITCH_DOWN
 end
 
---- Is the player aiming somewhere their gun can visibly point?
+local function HitOnlyVehicle( vehicle )
+    return function( ent )
+        return ent == vehicle
+    end
+end
+
+--- Leaning out: would shots go into the player's own vehicle (down through
+--- the roof, the bonnet, back into the car)? Only checked when the eyes are
+--- outside the vehicle's bounds, a trace starting inside it would always hit.
+local function IsAimIntoOwnVehicle( ply, vehicle )
+    local eyes = ply:EyePos()
+    local localEyes = vehicle:WorldToLocal( eyes )
+
+    if localEyes:WithinAABox( vehicle:OBBMins(), vehicle:OBBMaxs() ) then return false end
+
+    local tr = util.TraceLine( {
+        start = eyes,
+        endpos = eyes + aimAngles[ply]:Forward() * LEAN_BLOCK_CHECK_DISTANCE,
+        filter = HitOnlyVehicle( vehicle ),
+        ignoreworld = true,
+        mask = MASK_SHOT
+    } )
+
+    return tr.Hit
+end
+
+--- Is the player aiming somewhere their gun can physically point?
 function GlideArc9.IsAimInArc( ply )
-    local yaw = GlideArc9.GetSeatAimAngles( ply )
+    local yaw, pitch, _, vehicle = GlideArc9.GetVehicleAimAngles( ply )
     if not yaw then return true end
 
-    local min, max = GlideArc9.GetAimYawRange( ply )
+    local minYaw, maxYaw, minPitch, maxPitch = GlideArc9.GetAimLimits( ply )
 
-    return yaw >= min and yaw <= max
-end
-
-if SERVER then
-    local AngleDifference = math.AngleDifference
-    local Abs = math.abs
-
-    local networkedAim = setmetatable( {}, { __mode = "k" } )
-
-    local function NetworkAim( ply, angles )
-        local last = networkedAim[ply]
-
-        if last
-            and Abs( AngleDifference( last[1], angles[1] ) ) < AIM_NETWORK_THRESHOLD
-            and Abs( AngleDifference( last[2], angles[2] ) ) < AIM_NETWORK_THRESHOLD
-        then
-            return
-        end
-
-        networkedAim[ply] = angles
-        ply:SetNW2Angle( NW_AIM, angles )
+    if yaw < minYaw or yaw > maxYaw or pitch < minPitch or pitch > maxPitch then
+        return false
     end
 
-    hook.Add( "SetupMove", "GlideArc9.Aim", function( ply, _, cmd )
-        local inWeaponMode = GlideArc9.IsInWeaponMode( ply )
-        local angles = inWeaponMode and cmd:GetViewAngles() or nil
-
-        aimAngles[ply] = angles
-        UpdateNearWall( ply, inWeaponMode )
-
-        if angles then
-            NetworkAim( ply, angles )
-        end
-    end )
-end
-
-if CLIENT then
-    local LocalPlayer = LocalPlayer
-
-    local function GetCameraAim()
-        local camera = Glide and Glide.Camera
-        if not camera or not camera.isActive then return end
-
-        return camera.lastAimPosAnglesFromEyes
+    if GlideArc9.GetLeanSide( ply ) ~= 0 and IsAimIntoOwnVehicle( ply, vehicle ) then
+        return false
     end
 
-    hook.Add( "Think", "GlideArc9.Aim", function()
-        local localPly = LocalPlayer()
-
-        for _, ply in player.Iterator() do
-            local inWeaponMode = GlideArc9.IsInWeaponMode( ply )
-
-            if ply == localPly then
-                aimAngles[ply] = inWeaponMode and GetCameraAim() or nil
-                UpdateNearWall( ply, inWeaponMode )
-            else
-                aimAngles[ply] = inWeaponMode and ply:GetNW2Angle( NW_AIM, nil ) or nil
-            end
-        end
-    end )
-end
-
------ EyeAngles / GetAimVector
-
-local PlayerMeta = FindMetaTable( "Player" )
-local EntityMeta = FindMetaTable( "Entity" )
-
--- Keep the originals across Lua refreshes
-GlideArc9.OriginalEyeAngles = GlideArc9.OriginalEyeAngles
-    or rawget( PlayerMeta, "EyeAngles" )
-    or EntityMeta.EyeAngles
-
-GlideArc9.OriginalGetAimVector = GlideArc9.OriginalGetAimVector
-    or rawget( PlayerMeta, "GetAimVector" )
-
-local originalEyeAngles = GlideArc9.OriginalEyeAngles
-local originalGetAimVector = GlideArc9.OriginalGetAimVector
-
-function PlayerMeta:EyeAngles()
-    local angles = aimAngles[self]
-
-    if angles then
-        -- Return a copy, callers (ARC9 included) modify it in place
-        return Angle( angles[1], angles[2], angles[3] )
-    end
-
-    return originalEyeAngles( self )
-end
-
-function PlayerMeta:GetAimVector()
-    local angles = aimAngles[self]
-
-    if angles then
-        return angles:Forward()
-    end
-
-    return originalGetAimVector( self )
+    return true
 end
 
 ----- Firing arc
