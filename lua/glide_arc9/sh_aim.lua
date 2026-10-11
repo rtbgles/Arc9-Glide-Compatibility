@@ -245,7 +245,7 @@ local function DebugShot( ply, kind, src, before, after )
     local vehicle = GetWeaponModeVehicle( ply )
     local seat = ply:GetVehicle()
 
-    print( string.format( "[GlideArc9 %s] %s | aim %s | eyes %s | engine eyes %s | bullet %s -> %s | vehicle %s | seat %s | src->aimpos %s",
+    print( string.format( "[GlideArc9 %s v" .. GlideArc9.VERSION .. "] %s | aim %s | eyes %s | engine eyes %s | bullet %s -> %s | vehicle %s | seat %s | src->aimpos %s",
         SERVER and "SV" or "CL", kind, tostring( aimAngles[ply] ), tostring( ply:EyeAngles() ),
         tostring( originalEyeAngles( ply ) ), tostring( before:Angle() ),
         after and tostring( after:Angle() ) or "unchanged",

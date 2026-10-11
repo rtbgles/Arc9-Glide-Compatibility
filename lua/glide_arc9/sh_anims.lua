@@ -204,7 +204,7 @@ local function UpdateWeaponModeAim( ply )
                 or ( name .. " missing" )
         end
 
-        print( string.format( "[GlideArc9 CL] pose | target yaw %.1f pitch %.1f | %s | head %.1f",
+        print( string.format( "[GlideArc9 CL v" .. GlideArc9.VERSION .. "] pose | target yaw %.1f pitch %.1f | %s | head %.1f",
             yaw, pitch, table.concat( parts, " | " ), yaw - twist ) )
     end
 end
@@ -218,8 +218,17 @@ local function WrapGlideHook( event, id, makeWrapper )
     local original = hooks and hooks[id]
     local key = event .. "/" .. id
 
-    -- Missing (Glide not installed / renamed), or already wrapped
-    if not isfunction( original ) or original == GlideArc9.WrappedHooks[key] then return end
+    if not isfunction( original ) then
+        -- Glide is loaded but this hook isn't there: probably renamed in a newer Glide
+        if Glide and not GlideArc9.WrappedHooks[key] then
+            print( "[Glide x ARC9] Could not find Glide's " .. key .. " hook; weapon poses in vehicles may not work." )
+        end
+
+        return
+    end
+
+    -- Already wrapped
+    if original == GlideArc9.WrappedHooks[key] then return end
 
     local wrapper = makeWrapper( original )
 
