@@ -1,0 +1,9 @@
+{
+    "title": "Glide x ARC9 - Weapons in Vehicles",
+    "type": "tool",
+    "tags": [ "fun", "realism" ],
+    "ignore": [
+        "*.md",
+        ".git*"
+    ]
+}
