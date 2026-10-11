@@ -6,9 +6,12 @@
        usercmd view angles (its turrets and tank cannons rely on this).
        While seated, the engine's EyeAngles does not match that aim, and
        ARC9 aims and shoots with EyeAngles, so shots went off to the side.
-       For players in weapon mode, EyeAngles/GetAimVector return the aim
-       Glide sent instead. It is cached from the same usercmd on both
-       realms, so prediction stays in sync.
+       For players in weapon mode, EyeAngles/GetAimVector return that aim
+       instead:
+       - server: read from the usercmd, exactly what Glide sent
+       - local client: read from Glide's camera, the value Glide puts in
+         the usercmd (SetupMove is not reliable clientside in vehicles)
+       - other clients: networked from the server, used for animations
 
     2. The vehicle's own body
        In enclosed vehicles the player's eyes are inside the vehicle's
@@ -59,13 +62,76 @@ local function UpdateNearWall( ply, inWeaponMode )
     nearWallWeapons[ply] = weapon
 end
 
-hook.Add( "SetupMove", "GlideArc9.Aim", function( ply, _, cmd )
-    local inWeaponMode = GlideArc9.IsInWeaponMode( ply )
+----- Aim caching
 
-    aimAngles[ply] = inWeaponMode and cmd:GetViewAngles() or nil
+local NW_AIM = "GlideArc9.Aim"
 
-    UpdateNearWall( ply, inWeaponMode )
-end )
+-- Only network the aim to other clients when it changes this much (degrees)
+local AIM_NETWORK_THRESHOLD = 1
+
+--- The world-space aim of a player in weapon mode, or nil.
+function GlideArc9.GetAimAngles( ply )
+    return aimAngles[ply]
+end
+
+if SERVER then
+    local AngleDifference = math.AngleDifference
+    local Abs = math.abs
+
+    local networkedAim = setmetatable( {}, { __mode = "k" } )
+
+    local function NetworkAim( ply, angles )
+        local last = networkedAim[ply]
+
+        if last
+            and Abs( AngleDifference( last[1], angles[1] ) ) < AIM_NETWORK_THRESHOLD
+            and Abs( AngleDifference( last[2], angles[2] ) ) < AIM_NETWORK_THRESHOLD
+        then
+            return
+        end
+
+        networkedAim[ply] = angles
+        ply:SetNW2Angle( NW_AIM, angles )
+    end
+
+    hook.Add( "SetupMove", "GlideArc9.Aim", function( ply, _, cmd )
+        local inWeaponMode = GlideArc9.IsInWeaponMode( ply )
+        local angles = inWeaponMode and cmd:GetViewAngles() or nil
+
+        aimAngles[ply] = angles
+        UpdateNearWall( ply, inWeaponMode )
+
+        if angles then
+            NetworkAim( ply, angles )
+        end
+    end )
+end
+
+if CLIENT then
+    local LocalPlayer = LocalPlayer
+
+    local function GetCameraAim()
+        local camera = Glide and Glide.Camera
+        if not camera or not camera.isActive then return end
+
+        return camera.lastAimPosAnglesFromEyes
+    end
+
+    hook.Add( "Think", "GlideArc9.Aim", function()
+        local localPly = LocalPlayer()
+
+        for _, ply in player.Iterator() do
+            local inWeaponMode = GlideArc9.IsInWeaponMode( ply )
+
+            if ply == localPly then
+                aimAngles[ply] = inWeaponMode and GetCameraAim() or nil
+                UpdateNearWall( ply, inWeaponMode )
+            else
+                aimAngles[ply] = inWeaponMode and ply:GetNW2Angle( NW_AIM, nil ) or nil
+            end
+        end
+    end )
+end
 
 ----- EyeAngles / GetAimVector
 
@@ -106,6 +172,25 @@ end
 
 ----- Bullets
 
+local cvarDebug = CreateConVar( "glide_arc9_debug", "0", { FCVAR_ARCHIVE, FCVAR_REPLICATED },
+    "Print aim/bullet directions to the console when firing in weapon mode.", 0, 1 )
+
+local DEBUG_INTERVAL = 0.25
+local nextDebugPrint = 0
+
+local function DebugShot( ply, kind, direction )
+    if not cvarDebug:GetBool() then return end
+
+    local now = RealTime()
+    if now < nextDebugPrint then return end
+
+    nextDebugPrint = now + DEBUG_INTERVAL
+
+    print( string.format( "[GlideArc9 %s] %s | aim %s | engine eyes %s | bullet %s",
+        SERVER and "SV" or "CL", kind, tostring( aimAngles[ply] ),
+        tostring( originalEyeAngles( ply ) ), tostring( direction:Angle() ) ) )
+end
+
 local function GetWeaponModeVehicle( ply )
     if not IsValid( ply ) or not ply:IsPlayer() then return end
     if not GlideArc9.IsInWeaponMode( ply ) then return end
@@ -122,6 +207,10 @@ hook.Add( "EntityFireBullets", "GlideArc9.IgnoreOwnVehicle", function( entity, d
 
     data.IgnoreEntity = vehicle
 
+    if data.Dir then
+        DebugShot( entity, "hitscan", data.Dir )
+    end
+
     return true
 end )
 
@@ -133,6 +222,10 @@ hook.Add( "ARC9_HookP_ModifyNewBullet", "GlideArc9.IgnoreOwnVehicle", function( 
 
     local filter = bullet.Filter
     filter[#filter + 1] = vehicle
+
+    if isvector( bullet.Vel ) then
+        DebugShot( owner, "physbullet", bullet.Vel )
+    end
 
     local seat = owner:GetVehicle()
 

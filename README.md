@@ -31,6 +31,9 @@ Both are loaded lazily, so addon load order does not matter.
 - The camera switches to first person so iron sights and scopes line up. ADS
   zoom, recoil kick and scoped mouse sensitivity come from the weapon. Your
   previous camera view comes back when you holster.
+- In third person, every seat (including car drivers) uses a seated pose that
+  holds the weapon, with the arms and head following your aim. Other players
+  see this too.
 - When you get out of the vehicle you keep holding the weapon you were using.
 
 ## Server convars
@@ -42,6 +45,7 @@ Both are loaded lazily, so addon load order does not matter.
 | `glide_arc9_allow_passengers` | `1` | Lets passengers use weapon mode. |
 | `glide_arc9_arc9_only` | `1` | Only ARC9 weapons can be held in weapon mode. Set to `0` to allow any weapon. |
 | `glide_arc9_protect_own_vehicle` | `1` | Weapons fired from inside a Glide vehicle don't damage that vehicle (body, wheels, turrets). Shots from outside still do. |
+| `glide_arc9_debug` | `0` | Prints aim and bullet directions to the console (client and server) when firing in weapon mode. Use this when reporting aim bugs. |
 | `glide_arc9_blocked_actions` | `attack,attack_alt,switch_weapon,horn` | Comma-separated Glide actions that are ignored while in weapon mode. |
 
 ## Client convars / commands
@@ -82,8 +86,6 @@ hook.Add( "GlideArc9_CanDrawHUD", "MyAddon", function() end )
   driving and shooting at the same time.
 - Bullets pass through your own vehicle's windows and doors without
   breaking them.
-- Other players may see your gun pointing slightly off in third person. Only
-  your own client and the server use the corrected aim.
 - The scroll wheel also cycles the vehicle's own weapons for drivers of
   armed vehicles (Glide reads the scroll wheel directly).
 - Garry's Mod says `SetAllowWeaponsInVehicle` should be set before entering a
