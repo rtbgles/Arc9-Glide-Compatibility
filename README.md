@@ -52,7 +52,7 @@ Both are loaded lazily, so addon load order does not matter.
 | `glide_arc9_allow_passengers` | `1` | Lets passengers use weapon mode. |
 | `glide_arc9_arc9_only` | `1` | Only ARC9 weapons can be held in weapon mode. Set to `0` to allow any weapon. |
 | `glide_arc9_protect_own_vehicle` | `1` | Weapons fired from inside a Glide vehicle don't damage that vehicle (body, wheels, turrets). Shots from outside still do. |
-| `glide_arc9_debug` | `0` | Prints aim and bullet directions to the console (client and server) when firing in weapon mode. Use this when reporting aim bugs. |
+| `glide_arc9_debug` | `0` | Prints aim, bullet and vehicle angles to the console when firing in weapon mode. With `developer 1` it also draws each shot's path (red = server, blue = client) and Glide's aim point (green cross). Use this when reporting aim bugs. |
 | `glide_arc9_blocked_actions` | `attack,attack_alt,switch_weapon,horn` | Comma-separated Glide actions that are ignored while in weapon mode. |
 
 ## Client convars / commands

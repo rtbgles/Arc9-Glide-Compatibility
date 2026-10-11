@@ -191,19 +191,10 @@ local MIN_AIM_DISTANCE_SQR = 16 * 16
 local DEBUG_INTERVAL = 0.25
 local nextDebugPrint = 0
 
-local function DebugShot( ply, kind, before, after )
-    if not cvarDebug:GetBool() then return end
-
-    local now = RealTime()
-    if now < nextDebugPrint then return end
-
-    nextDebugPrint = now + DEBUG_INTERVAL
-
-    print( string.format( "[GlideArc9 %s] %s | aim %s | eyes %s | engine eyes %s | bullet %s -> %s",
-        SERVER and "SV" or "CL", kind, tostring( aimAngles[ply] ), tostring( ply:EyeAngles() ),
-        tostring( originalEyeAngles( ply ) ), tostring( before:Angle() ),
-        after and tostring( after:Angle() ) or "unchanged" ) )
-end
+local DEBUG_LINE_LENGTH = 3000
+local DEBUG_LINE_LIFETIME = 3
+local DEBUG_COLOR_SHOT = SERVER and Color( 255, 60, 60 ) or Color( 60, 140, 255 )
+local DEBUG_COLOR_AIM = Color( 60, 255, 60 )
 
 local function GetWeaponModeVehicle( ply )
     if not IsValid( ply ) or not ply:IsPlayer() then return end
@@ -229,6 +220,38 @@ local function GetAimPos( ply )
     if not isvector( aimPos ) or aimPos:IsZero() then return end
 
     return aimPos
+end
+
+--- With glide_arc9_debug 1: print the shot's angles, and (with developer 1)
+--- draw the shot's path (red = server, blue = client) and Glide's aim point
+--- (green cross).
+local function DebugShot( ply, kind, src, before, after )
+    if not cvarDebug:GetBool() then return end
+
+    local final = after or before
+    local aimPos = GetAimPos( ply )
+
+    debugoverlay.Line( src, src + final:GetNormalized() * DEBUG_LINE_LENGTH, DEBUG_LINE_LIFETIME, DEBUG_COLOR_SHOT, true )
+
+    if aimPos then
+        debugoverlay.Cross( aimPos, 16, DEBUG_LINE_LIFETIME, DEBUG_COLOR_AIM, true )
+    end
+
+    local now = RealTime()
+    if now < nextDebugPrint then return end
+
+    nextDebugPrint = now + DEBUG_INTERVAL
+
+    local vehicle = GetWeaponModeVehicle( ply )
+    local seat = ply:GetVehicle()
+
+    print( string.format( "[GlideArc9 %s] %s | aim %s | eyes %s | engine eyes %s | bullet %s -> %s | vehicle %s | seat %s | src->aimpos %s",
+        SERVER and "SV" or "CL", kind, tostring( aimAngles[ply] ), tostring( ply:EyeAngles() ),
+        tostring( originalEyeAngles( ply ) ), tostring( before:Angle() ),
+        after and tostring( after:Angle() ) or "unchanged",
+        IsValid( vehicle ) and tostring( vehicle:GetAngles() ) or "none",
+        IsValid( seat ) and tostring( seat:GetAngles() ) or "none",
+        aimPos and tostring( ( aimPos - src ):Angle() ) or "none" ) )
 end
 
 --- Re-aim a shot leaving the gun at `src` so it goes to Glide's aim point.
@@ -260,7 +283,7 @@ hook.Add( "EntityFireBullets", "GlideArc9.InVehicleShots", function( entity, dat
     if isvector( data.Src ) and isvector( data.Dir ) then
         local newDir = CorrectShotDirection( entity, data.Src, data.Dir )
 
-        DebugShot( entity, "hitscan", data.Dir, newDir )
+        DebugShot( entity, "hitscan", data.Src, data.Dir, newDir )
 
         if newDir then
             data.Dir = newDir
@@ -295,7 +318,7 @@ hook.Add( "ARC9_HookP_ModifyNewBullet", "GlideArc9.InVehicleShots", function( we
 
     local newDir = CorrectShotDirection( owner, bullet.Pos, vel / speed )
 
-    DebugShot( owner, "physbullet", vel, newDir )
+    DebugShot( owner, "physbullet", bullet.Pos, vel, newDir )
 
     if newDir then
         bullet.Vel = newDir * speed
