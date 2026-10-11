@@ -51,11 +51,12 @@ As a **passenger in weapon mode**, **double-tap D** (your move-right key) to lea
 out of your window, and again to lean back in. You lean out of the window on
 your side of the car.
 
-- Your seat slides out to the door, rises a little and tilts toward the window,
-  and your body turns to follow your aim. You really are outside the window, so
-  where you shoot from and where you can be hit match what other players see.
-- While leaning you can aim anywhere on your side of the car, from the front to
-  the back (`glide_arc9_lean_aim_arc`).
+- Your seat slides toward the door, rises a little and tilts toward the window.
+  Your legs stay forward in the footwell and your upper body turns to aim. You
+  really are out of the window, so where you shoot from and where you can be
+  hit match what other players see.
+- While leaning you can aim forward and back on your side of the car (up to
+  `glide_arc9_lean_aim_back`, 150° from forward), and a little across the front.
 - You pull back in automatically when the window gets blocked (walls, other
   cars), and when you holster, get out or die.
 - Leaning players take explosion damage (Glide normally blocks it for people in
@@ -74,7 +75,7 @@ your side of the car.
 | `glide_arc9_debug` | `0` | Prints aim, bullet and vehicle angles to the console when firing in weapon mode. With `developer 1` it also draws each shot's path (red = server, blue = client) and Glide's aim point (green cross). Use this when reporting aim bugs. |
 | `glide_arc9_aim_arc` | `110` | How far left/right of the seat's forward you can aim and fire. Past it the gun stops and firing is blocked, so bullets never leave where the gun isn't pointing. |
 | `glide_arc9_lean_enabled` | `1` | Lets passengers in weapon mode lean out of their window. |
-| `glide_arc9_lean_aim_arc` | `120` | While leaning out, how far from straight out of the window you can aim and fire. |
+| `glide_arc9_lean_aim_back` | `150` | While leaning out, how far back (degrees from forward) you can aim and fire on your side. |
 | `glide_arc9_blocked_actions` | `attack,attack_alt,switch_weapon,horn` | Comma-separated Glide actions that are ignored while in weapon mode. |
 
 ## Client convars / commands

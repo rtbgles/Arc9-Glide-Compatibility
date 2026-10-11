@@ -23,8 +23,11 @@ local cvarAimArc = CreateConVar( "glide_arc9_aim_arc", "110", SERVER_FLAGS,
 local cvarLeanEnabled = CreateConVar( "glide_arc9_lean_enabled", "1", SERVER_FLAGS,
     "Let passengers in weapon mode lean out of their window (double-tap D).", 0, 1 )
 
-local cvarLeanAimArc = CreateConVar( "glide_arc9_lean_aim_arc", "120", SERVER_FLAGS,
-    "While leaning out, how far (degrees) from straight out of the window players can aim and fire.", 30, 180 )
+local cvarLeanAimBack = CreateConVar( "glide_arc9_lean_aim_back", "150", SERVER_FLAGS,
+    "While leaning out, how far back (degrees from forward) players can aim and fire on their side.", 90, 170 )
+
+-- While leaning out, how far players can aim across the front of the vehicle
+local LEAN_AIM_ACROSS = 30
 
 CreateConVar( "glide_arc9_blocked_actions", "attack,attack_alt,switch_weapon,horn", SERVER_FLAGS,
     "Comma-separated Glide input actions that are ignored while a player is in weapon mode." )
@@ -42,8 +45,17 @@ function GlideArc9.IsLeanEnabled()
     return cvarLeanEnabled:GetBool()
 end
 
-function GlideArc9.GetLeanAimArc()
-    return cvarLeanAimArc:GetFloat()
+--- Seat-relative yaw range (min, max) a player leaning out of `side`
+--- (1 = left, -1 = right) can aim in: forward and back on their side, and
+--- a little across the front. Positive yaw is to the left.
+function GlideArc9.GetLeanYawRange( side )
+    local back = cvarLeanAimBack:GetFloat()
+
+    if side > 0 then
+        return -LEAN_AIM_ACROSS, back
+    end
+
+    return -back, LEAN_AIM_ACROSS
 end
 
 --- Which window this player is leaning out of: 1 = left, -1 = right, 0 = not leaning.

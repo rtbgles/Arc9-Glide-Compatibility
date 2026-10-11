@@ -96,26 +96,27 @@ function GlideArc9.GetSeatAimAngles( ply )
     return NormalizeAngle( localAim[2] - SEAT_FORWARD_YAW ), NormalizeAngle( localAim[1] )
 end
 
---- Is the player aiming somewhere their gun can visibly point?
---- Seated: within the aim arc of the seat's forward direction.
---- Leaning out: within the lean arc of straight out of the window.
-function GlideArc9.IsAimInArc( ply )
+--- Seat-relative yaw range (min, max) the player's gun can visibly reach.
+function GlideArc9.GetAimYawRange( ply )
     local side = GlideArc9.GetLeanSide( ply )
 
     if side ~= 0 then
-        local aim = aimAngles[ply]
-        local vehicle = ply:GlideGetVehicle()
-        if not aim or not IsValid( vehicle ) then return true end
-
-        local yaw = vehicle:WorldToLocalAngles( aim )[2]
-
-        return math.abs( NormalizeAngle( yaw - side * 90 ) ) <= GlideArc9.GetLeanAimArc()
+        return GlideArc9.GetLeanYawRange( side )
     end
 
+    local arc = GlideArc9.GetAimArc()
+
+    return -arc, arc
+end
+
+--- Is the player aiming somewhere their gun can visibly point?
+function GlideArc9.IsAimInArc( ply )
     local yaw = GlideArc9.GetSeatAimAngles( ply )
     if not yaw then return true end
 
-    return math.abs( yaw ) <= GlideArc9.GetAimArc()
+    local min, max = GlideArc9.GetAimYawRange( ply )
+
+    return yaw >= min and yaw <= max
 end
 
 if SERVER then

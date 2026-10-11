@@ -86,9 +86,6 @@ local Clamp = math.Clamp
 local YAW_POSE_PARAMS = { "aim_yaw", "spine_yaw", "body_yaw" }
 local TWIST_POSE_PARAMS = { "spine_yaw", "body_yaw" }
 
--- How far the body turns from the (already turned) seat while leaning out
-local LEAN_POSE_ARC = 120
-
 -- [model] = { [poseName] = { min, max } or false }
 local poseRanges = {}
 
@@ -145,13 +142,16 @@ end
 -- Whatever the pose parameters can't cover is spread over these bones.
 -- The arms and head hang off them, so twisting them turns the gun.
 local TWIST_BONES = {
+    "ValveBiped.Bip01_Spine",
     "ValveBiped.Bip01_Spine1",
     "ValveBiped.Bip01_Spine2",
     "ValveBiped.Bip01_Spine4"
 }
 
--- Most the spine bones may twist in total, either way
+-- Most the spine bones may twist in total, either way. Leaning out of a
+-- window the hips stay put, so the upper body has to turn further.
 local MAX_BONE_TWIST = 75
+local MAX_BONE_TWIST_LEANING = 110
 
 -- [model] = { boneId, ... }
 local twistBoneIds = {}
@@ -233,12 +233,11 @@ local function UpdateWeaponModeAim( ply )
     local yaw, pitch = GlideArc9.GetSeatAimAngles( ply )
     if not yaw then return end
 
-    -- Nobody can aim straight behind them from a car seat. Past the aim arc
-    -- the gun stays at the limit on that side (and firing is blocked).
-    -- While leaning out, the seat turns with the aim (sv_lean.lua), so the
-    -- body only has to cover what's left.
-    local arc = GlideArc9.GetLeanSide( ply ) ~= 0 and LEAN_POSE_ARC or GlideArc9.GetAimArc()
-    local remaining = Clamp( yaw, -arc, arc )
+    -- Nobody can aim straight behind them from a car seat. Past the aim
+    -- range the gun stays at the limit (and firing is blocked, sh_aim.lua).
+    local isLeaning = GlideArc9.GetLeanSide( ply ) ~= 0
+    local minYaw, maxYaw = GlideArc9.GetAimYawRange( ply )
+    local remaining = Clamp( yaw, minYaw, maxYaw )
     local twist = 0
     local applied = {}
 
@@ -256,7 +255,8 @@ local function UpdateWeaponModeAim( ply )
     local boneTwist = 0
 
     if CLIENT and #GetTwistBones( ply ) > 0 then
-        boneTwist = Clamp( remaining, -MAX_BONE_TWIST, MAX_BONE_TWIST )
+        local maxTwist = isLeaning and MAX_BONE_TWIST_LEANING or MAX_BONE_TWIST
+        boneTwist = Clamp( remaining, -maxTwist, maxTwist )
         twist = twist + boneTwist
     end
 

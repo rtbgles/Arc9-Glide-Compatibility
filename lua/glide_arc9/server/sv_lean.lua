@@ -1,11 +1,12 @@
 --[[
     Leaning out of the window (passengers in weapon mode, double-tap D).
 
-    The passenger's seat is moved: slid out to the door, raised a little and
-    tilted toward the window, and turned to follow the aim. The player is
-    attached to the seat, so their eyes, the bullets' origin and their hit
-    boxes really are outside the window, which is exactly what other
-    players see. The seat goes back to where Glide put it when the lean
+    The passenger's seat is moved: slid toward the door, raised a little and
+    tilted toward the window. The seat keeps facing forward, so the legs
+    stay in the footwell and only the upper body turns to aim (sh_anims.lua).
+    The player is attached to the seat, so their eyes, the bullets' origin
+    and their hit boxes really are out of the window, which is exactly what
+    other players see. The seat goes back to where Glide put it when the lean
     ends, the player leaves, dies or holsters.
 ]]
 
@@ -27,11 +28,12 @@ local LEAN_TILT = 20
 -- Units the seat moves up, so the shoulders clear the window sill
 local LEAN_RAISE = 8
 
--- The seat stops this far inside the vehicle's side
-local LEAN_INSET = 4
+-- The seat stops this far inside the vehicle's side, so the hips stay
+-- tucked in and the tilt puts the shoulders out of the window
+local LEAN_INSET = 12
 
--- Most the seat may move sideways (wide vehicles)
-local MAX_LEAN_SIDEWAYS = 30
+-- Most the seat may move sideways (wide vehicles, mirrors in the bounds)
+local MAX_LEAN_SIDEWAYS = 18
 
 -- Seats closer to the vehicle's center line than this can't lean
 local MIN_SIDE_OFFSET = 4
@@ -42,11 +44,6 @@ local MAX_FACING_ERROR = 30
 -- Glide seats face forward with this local yaw
 local SEAT_FORWARD_LOCAL_YAW = 270
 
--- The body turns to follow the aim by half of how far it is from straight
--- out, up to this much either way (the arms and spine cover the rest)
-local MAX_EXTRA_TURN = 45
-local BODY_TURN_SPEED = 240
-
 -- Room check: a box from the middle of the vehicle to the leaned out head
 local ROOM_CHECK_INTERVAL = 0.2
 local ROOM_HULL_MAX = Vector( 6, 6, 6 )
@@ -55,8 +52,6 @@ local HEAD_HEIGHT = 30
 local HEAD_OUT = 16
 
 local TOGGLE_COOLDOWN = 0.4
-
-local VECTOR_UP = Vector( 0, 0, 1 )
 
 local ICON_DENIED = "materials/icon16/cancel.png"
 local SOUND_DENIED = "glide/ui/radar_alert.wav"
@@ -162,19 +157,6 @@ local function StartLeaningIn( ply, state )
     SetLeanSide( ply, 0 )
 end
 
---- How far the body should turn (around the vehicle's up axis) to face
---- partly toward where the player is aiming.
-local function GetTargetTurn( ply, state )
-    local aim = GlideArc9.GetAimAngles( ply )
-    if not aim then return 0 end
-
-    local outward = state.side * 90
-    local aimYaw = state.vehicle:WorldToLocalAngles( aim )[2]
-    local offset = NormalizeAngle( aimYaw - outward )
-
-    return outward * 0.5 + Clamp( offset * 0.5, -MAX_EXTRA_TURN, MAX_EXTRA_TURN )
-end
-
 local function UpdateLean( ply, state, dt )
     local target = state.leaningOut and 1 or 0
     state.fraction = Approach( state.fraction, target, dt / LEAN_TIME )
@@ -187,11 +169,7 @@ local function UpdateLean( ply, state, dt )
     local f = state.fraction
     local eased = f * f * ( 3 - 2 * f )
 
-    local targetTurn = state.leaningOut and GetTargetTurn( ply, state ) * eased or 0
-    state.turn = Approach( state.turn, targetTurn, BODY_TURN_SPEED * dt )
-
     local ang = Angle( state.baseAng )
-    ang:RotateAroundAxis( VECTOR_UP, state.turn )
     ang:RotateAroundAxis( state.tiltAxis, LEAN_TILT * eased )
 
     state.seat:SetLocalPos( LerpVector( eased, state.basePos, state.leanedPos ) )
@@ -231,7 +209,6 @@ local function StartLean( ply )
         tiltAxis = Vector( -side, 0, 0 ),
 
         fraction = 0,
-        turn = 0,
         leaningOut = true,
         nextRoomCheck = 0
     }
