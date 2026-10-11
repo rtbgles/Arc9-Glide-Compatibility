@@ -47,9 +47,9 @@ Both are loaded lazily, so addon load order does not matter.
 
 ## Leaning out of the window
 
-As a **passenger in weapon mode**, **double-tap D** (your move-right key) to lean
-out of your window, and again to lean back in. You lean out of the window on
-your side of the car.
+As a **passenger in weapon mode**, double-tap the move key toward your window to
+lean out of it, and again to lean back in: **A** in a left-side seat (e.g. the
+rear left), **D** in a right-side seat (e.g. the front passenger).
 
 - Your seat slides toward the door, rises a little and tilts toward the window.
   Your legs stay forward in the footwell and your upper body turns to aim. You
@@ -84,7 +84,7 @@ your side of the car.
 | --- | --- | --- |
 | `cl_glide_arc9_toggle_key` | `c` | Key to double-tap for weapon mode (a key name such as `c`, `g`, `mouse3`). |
 | `cl_glide_arc9_doubletap` | `1` | Turns double-tap detection on or off. |
-| `cl_glide_arc9_lean_doubletap` | `1` | Turns double-tap D (lean out) on or off. |
+| `cl_glide_arc9_lean_doubletap` | `1` | Turns double-tap A / D (lean out) on or off. |
 | `cl_glide_arc9_doubletap_window` | `0.3` | Max seconds between the two taps. |
 | `cl_glide_arc9_firstperson` | `1` | Switch to first person while in weapon mode. |
 | `cl_glide_arc9_weapon_view` | `1` | Lets the weapon adjust the camera (ADS zoom, recoil). |

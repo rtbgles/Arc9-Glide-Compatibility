@@ -182,8 +182,11 @@ local function ResetBoneTwist( ply )
     end
 end
 
---- Twist the spine around the vehicle's up axis. Bone axes differ between
---- models, so the axis is worked out from each bone's current orientation.
+--- Twist the spine around the seat's up axis: the way the body leans (the
+--- seat tilts toward the window while leaning out), and the frame the aim
+--- is measured in. Twisting a tilted body around the vehicle's up axis
+--- would tip it forward/back instead. Bone axes differ between models, so
+--- the axis is worked out from each bone's current orientation.
 --- Rotating about that axis leaves it unchanged, so reading the already
 --- twisted bones every frame does not feed back into the result.
 local function ApplyBoneTwist( ply, amount )
@@ -191,10 +194,10 @@ local function ApplyBoneTwist( ply, amount )
     local count = #ids
     if count == 0 then return end
 
-    local vehicle = ply:GlideGetVehicle()
-    if not IsValid( vehicle ) then return end
+    local seat = ply:GetVehicle()
+    if not IsValid( seat ) then return end
 
-    local up = vehicle:GetUp()
+    local up = seat:GetUp()
     local perBone = amount / count
 
     for _, id in ipairs( ids ) do

@@ -1,5 +1,6 @@
 --[[
-    Leaning out of the window (passengers in weapon mode, double-tap D).
+    Leaning out of the window (passengers in weapon mode, double-tap the
+    move key toward their window: A on the left, D on the right).
 
     The passenger's seat is moved: slid toward the door, raised a little and
     tilted toward the window. The seat keeps facing forward, so the legs
@@ -23,10 +24,10 @@ local NW_LEAN = GlideArc9.NW_LEAN
 local LEAN_TIME = 0.35
 
 -- Degrees the passenger tilts toward the window
-local LEAN_TILT = 20
+local LEAN_TILT = 30
 
 -- Units the seat moves up, so the shoulders clear the window sill
-local LEAN_RAISE = 8
+local LEAN_RAISE = 14
 
 -- The seat stops this far inside the vehicle's side, so the hips stay
 -- tucked in and the tilt puts the shoulders out of the window
@@ -34,9 +35,6 @@ local LEAN_INSET = 12
 
 -- Most the seat may move sideways (wide vehicles, mirrors in the bounds)
 local MAX_LEAN_SIDEWAYS = 18
-
--- Seats closer to the vehicle's center line than this can't lean
-local MIN_SIDE_OFFSET = 4
 
 -- Only seats facing within this many degrees of forward can lean
 local MAX_FACING_ERROR = 30
@@ -71,7 +69,7 @@ local function Notify( ply, text )
 end
 
 --- Can this player lean out right now? Returns { vehicle, seat, basePos,
---- baseAng }, or nil and a notification phrase (nil when not worth saying).
+--- baseAng, side }, or nil and a notification phrase (nil when not worth saying).
 local function GetLeanSetup( ply )
     if not GlideArc9.IsLeanEnabled() then return nil, "#glide_arc9.notify.lean_disabled" end
     if not GlideArc9.IsInWeaponMode( ply ) then return nil, "#glide_arc9.notify.lean_no_weapon" end
@@ -89,13 +87,14 @@ local function GetLeanSetup( ply )
     local basePos = seat:GetLocalPos()
     local baseAng = seat:GetLocalAngles()
 
-    if math.abs( basePos[2] ) < MIN_SIDE_OFFSET then return nil, "#glide_arc9.notify.lean_seat" end
+    local side = GlideArc9.GetSeatSide( ply )
+    if side == 0 then return nil, "#glide_arc9.notify.lean_seat" end
 
     if math.abs( NormalizeAngle( baseAng[2] - SEAT_FORWARD_LOCAL_YAW ) ) > MAX_FACING_ERROR then
         return nil, "#glide_arc9.notify.lean_seat"
     end
 
-    return { vehicle = vehicle, seat = seat, basePos = basePos, baseAng = baseAng }
+    return { vehicle = vehicle, seat = seat, basePos = basePos, baseAng = baseAng, side = side }
 end
 
 local function GetLeanedPos( vehicle, basePos, side )
@@ -195,7 +194,7 @@ local function StartLean( ply )
         return
     end
 
-    local side = setup.basePos[2] > 0 and 1 or -1
+    local side = setup.side
 
     state = {
         vehicle = setup.vehicle,

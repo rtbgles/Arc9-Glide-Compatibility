@@ -65,11 +65,12 @@ hook.Add( "GlideArc9_OnLocalWeaponModeChanged", "GlideArc9.HUD", function( inWea
     leaningText = language.GetPhrase( "glide_arc9.hud.leaning_out" )
     outOfArcText = language.GetPhrase( "glide_arc9.hud.out_of_arc" )
     local ply = LocalPlayer()
-    local canLean = GlideArc9.IsLeanEnabled() and ply:GlideGetSeatIndex() > 1
+    local _, leanBind = GlideArc9.GetLeanKey( ply )
+    local canLean = leanBind and GlideArc9.IsLeanEnabled() and ply:GlideGetSeatIndex() > 1
 
     if canLean then
-        local rightKey = string.upper( input.LookupBinding( "+moveright" ) or "D" )
-        hintText = string.format( language.GetPhrase( "glide_arc9.hud.lean_hint" ), GlideArc9.GetToggleKeyName(), rightKey )
+        local leanKey = string.upper( input.LookupBinding( leanBind ) or ( leanBind == "+moveleft" and "A" or "D" ) )
+        hintText = string.format( language.GetPhrase( "glide_arc9.hud.lean_hint" ), GlideArc9.GetToggleKeyName(), leanKey )
     else
         hintText = string.format( language.GetPhrase( "glide_arc9.hud.holster_hint" ), GlideArc9.GetToggleKeyName() )
     end

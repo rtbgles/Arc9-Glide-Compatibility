@@ -21,7 +21,7 @@ local cvarAimArc = CreateConVar( "glide_arc9_aim_arc", "110", SERVER_FLAGS,
     "How far (degrees, left or right of the seat's forward) players can aim and fire in weapon mode.", 30, 180 )
 
 local cvarLeanEnabled = CreateConVar( "glide_arc9_lean_enabled", "1", SERVER_FLAGS,
-    "Let passengers in weapon mode lean out of their window (double-tap D).", 0, 1 )
+    "Let passengers in weapon mode lean out of their window (double-tap A or D).", 0, 1 )
 
 local cvarLeanAimBack = CreateConVar( "glide_arc9_lean_aim_back", "150", SERVER_FLAGS,
     "While leaning out, how far back (degrees from forward) players can aim and fire on their side.", 90, 170 )
@@ -56,6 +56,21 @@ function GlideArc9.GetLeanYawRange( side )
     end
 
     return -back, LEAN_AIM_ACROSS
+end
+
+-- Seats closer to the vehicle's center line than this have no window side
+local MIN_SEAT_SIDE_OFFSET = 4
+
+--- Which side of the vehicle this player's seat is on: 1 = left, -1 = right,
+--- 0 = middle (or not seated). Glide vehicles face +X, so left is +Y.
+function GlideArc9.GetSeatSide( ply )
+    local seat = ply:GetVehicle()
+    if not IsValid( seat ) then return 0 end
+
+    local y = seat:GetLocalPos()[2]
+    if math.abs( y ) < MIN_SEAT_SIDE_OFFSET then return 0 end
+
+    return y > 0 and 1 or -1
 end
 
 --- Which window this player is leaning out of: 1 = left, -1 = right, 0 = not leaning.

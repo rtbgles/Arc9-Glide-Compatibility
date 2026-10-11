@@ -8,7 +8,7 @@ local cvarToggleKey = CreateClientConVar( "cl_glide_arc9_toggle_key", "c", true,
     "Key to double-tap while in a Glide vehicle to toggle weapon mode (a key name, like c or g)." )
 
 local cvarLeanDoubleTap = CreateClientConVar( "cl_glide_arc9_lean_doubletap", "1", true, false,
-    "Double-tap right (D) as a passenger in weapon mode to lean out of the window.", 0, 1 )
+    "As a passenger in weapon mode, double-tap the move key toward your window (A on the left, D on the right) to lean out.", 0, 1 )
 
 language.Add( "glide_arc9.notify.no_weapon", "You have no weapon that can be used inside vehicles." )
 language.Add( "glide_arc9.notify.seat_denied", "Weapons are not allowed on this seat." )
@@ -74,9 +74,9 @@ local swallowNextRelease = false
 local wasKeyDown = false
 local lastPolledTap = 0
 
--- Double-tapping right (D) to lean out
-local wasRightDown = false
-local lastRightTap = 0
+-- Double-tapping the move key toward your window (A / D) to lean out
+local wasLeanKeyDown = false
+local lastLeanTap = 0
 
 function GlideArc9.GetToggleKey()
     local code = input.GetKeyCode( cvarToggleKey:GetString() )
@@ -232,26 +232,39 @@ local function PollUnboundToggleKey( ply )
     end
 end
 
---- Passengers in weapon mode: double-tap right (D) to lean out / back in.
---- Passengers' movement keys do nothing in Glide, so nothing needs blocking.
+--- The movement key toward the player's window: left seats use move left
+--- (A), right seats move right (D). Returns the IN_ key and its bind.
+function GlideArc9.GetLeanKey( ply )
+    local side = GlideArc9.GetSeatSide( ply )
+
+    if side > 0 then return IN_MOVELEFT, "+moveleft" end
+    if side < 0 then return IN_MOVERIGHT, "+moveright" end
+end
+
+--- Passengers in weapon mode: double-tap the key toward their window to
+--- lean out / back in. Passengers' movement keys do nothing in Glide, so
+--- nothing needs blocking.
 local function CheckLeanDoubleTap( ply )
-    local canLean = cvarLeanDoubleTap:GetBool()
+    local key = GlideArc9.GetLeanKey( ply )
+
+    local canLean = key
+        and cvarLeanDoubleTap:GetBool()
         and GlideArc9.IsInWeaponMode( ply )
         and ply:GlideGetSeatIndex() > 1
 
-    local isDown = canLean and ply:KeyDown( IN_MOVERIGHT ) and not IsTypingOrInMenu( ply )
-    if isDown == wasRightDown then return end
+    local isDown = canLean and ply:KeyDown( key ) and not IsTypingOrInMenu( ply ) or false
+    if isDown == wasLeanKeyDown then return end
 
-    wasRightDown = isDown
+    wasLeanKeyDown = isDown
     if not isDown then return end
 
     local now = RealTime()
 
-    if now - lastRightTap <= cvarDoubleTapWindow:GetFloat() then
-        lastRightTap = 0
+    if now - lastLeanTap <= cvarDoubleTapWindow:GetFloat() then
+        lastLeanTap = 0
         GlideArc9.RequestLean()
     else
-        lastRightTap = now
+        lastLeanTap = now
     end
 end
 
@@ -259,8 +272,8 @@ local function ResetState()
     DropHeldTap()
     wasKeyDown = false
     lastPolledTap = 0
-    wasRightDown = false
-    lastRightTap = 0
+    wasLeanKeyDown = false
+    lastLeanTap = 0
 
     if wasInWeaponMode then
         wasInWeaponMode = false
