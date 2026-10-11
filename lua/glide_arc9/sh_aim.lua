@@ -210,14 +210,23 @@ if SERVER then
 
     hook.Add( "SetupMove", "GlideArc9.Aim", function( ply, _, cmd )
         local inWeaponMode = GlideArc9.IsInWeaponMode( ply )
-        local angles = inWeaponMode and cmd:GetViewAngles() or nil
-
-        aimAngles[ply] = angles
         UpdateNearWall( ply, inWeaponMode )
 
-        if angles then
-            NetworkAim( ply, angles )
+        if not inWeaponMode then
+            aimAngles[ply] = nil
+            return
         end
+
+        -- Glide puts the distance to its aim point in the up-move while its
+        -- camera is active. Zero means it isn't (the player is looking through
+        -- a GMod camera, for example) and the view angles are just the seat's,
+        -- so keep aiming where the player last aimed.
+        if cmd:GetUpMove() == 0 and aimAngles[ply] then return end
+
+        local angles = cmd:GetViewAngles()
+
+        aimAngles[ply] = angles
+        NetworkAim( ply, angles )
     end )
 end
 
@@ -238,7 +247,8 @@ if CLIENT then
             local inWeaponMode = GlideArc9.IsInWeaponMode( ply )
 
             if ply == localPly then
-                aimAngles[ply] = inWeaponMode and GetCameraAim() or nil
+                -- Keep the last aim while Glide's camera is off (see the server side)
+                aimAngles[ply] = inWeaponMode and ( GetCameraAim() or aimAngles[ply] ) or nil
                 UpdateNearWall( ply, inWeaponMode )
             else
                 aimAngles[ply] = inWeaponMode and ply:GetNW2Angle( NW_AIM, nil ) or nil

@@ -49,6 +49,9 @@ Both are loaded lazily, so addon load order does not matter.
   `glide_arc9_aim_arc` left/right (110° by default) and about 50° up / 40° down
   when seated. Outside that the gun stops, firing is blocked and the HUD shows
   "CAN'T AIM THERE".
+- If something else takes over your view (looking through a GMod camera, for
+  example), you keep aiming where you last aimed, so you can film yourself and
+  see what other players see.
 - When you get out of the vehicle you keep holding the weapon you were using.
 
 ## Leaning out of the window
