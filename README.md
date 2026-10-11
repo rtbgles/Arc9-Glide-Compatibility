@@ -3,7 +3,8 @@
 A Garry's Mod addon that lets players draw and fire their **ARC9** weapons while
 seated in a **Glide** vehicle.
 
-**Double-tap CTRL** (your `+duck` key) while seated to enter **weapon mode**.
+**Double-tap C** while seated to enter **weapon mode**. You can change the key
+with `cl_glide_arc9_toggle_key`.
 Double-tap again to holster.
 
 ## Installing / updating
@@ -54,13 +55,15 @@ Both are loaded lazily, so addon load order does not matter.
 | `glide_arc9_arc9_only` | `1` | Only ARC9 weapons can be held in weapon mode. Set to `0` to allow any weapon. |
 | `glide_arc9_protect_own_vehicle` | `1` | Weapons fired from inside a Glide vehicle don't damage that vehicle (body, wheels, turrets). Shots from outside still do. |
 | `glide_arc9_debug` | `0` | Prints aim, bullet and vehicle angles to the console when firing in weapon mode. With `developer 1` it also draws each shot's path (red = server, blue = client) and Glide's aim point (green cross). Use this when reporting aim bugs. |
+| `glide_arc9_aim_arc` | `110` | How far left/right of the seat's forward you can aim and fire. Past it the gun stops and firing is blocked, so bullets never leave where the gun isn't pointing. |
 | `glide_arc9_blocked_actions` | `attack,attack_alt,switch_weapon,horn` | Comma-separated Glide actions that are ignored while in weapon mode. |
 
 ## Client convars / commands
 
 | Convar | Default | Description |
 | --- | --- | --- |
-| `cl_glide_arc9_doubletap` | `1` | Turns double-tap CTRL detection on or off. |
+| `cl_glide_arc9_toggle_key` | `c` | Key to double-tap for weapon mode (a key name such as `c`, `g`, `mouse3`). |
+| `cl_glide_arc9_doubletap` | `1` | Turns double-tap detection on or off. |
 | `cl_glide_arc9_doubletap_window` | `0.3` | Max seconds between the two taps. |
 | `cl_glide_arc9_firstperson` | `1` | Switch to first person while in weapon mode. |
 | `cl_glide_arc9_weapon_view` | `1` | Lets the weapon adjust the camera (ADS zoom, recoil). |
@@ -87,8 +90,9 @@ hook.Add( "GlideArc9_CanDrawHUD", "MyAddon", function() end )
 
 ## Known limitations
 
-- A single CTRL press also toggles Glide's first/third person camera, so a
-  double-tap flips the view twice before weapon mode sets it.
+- While seated, C (the context menu key, and ARC9's customize/peek key) reacts
+  0.3 seconds late: a first press is held back to see if a second one follows.
+  Holding C still works, and ARC9 peeking while aiming is unaffected.
 - If Glide's mouse steering is set to **Aim**, aiming your gun also steers the
   car. Set mouse steering to "Disabled" in Glide's settings if you'll be
   driving and shooting at the same time.
@@ -96,6 +100,12 @@ hook.Add( "GlideArc9_CanDrawHUD", "MyAddon", function() end )
   breaking them.
 - The scroll wheel also cycles the vehicle's own weapons for drivers of
   armed vehicles (Glide reads the scroll wheel directly).
-- Garry's Mod says `SetAllowWeaponsInVehicle` should be set before entering a
-  vehicle. This addon toggles it mid-ride, which Glide's own code also
-  relies on, but it has not been tested in-game yet. Test it on your server.
+- **Singleplayer:** shots have been seen going backwards in singleplayer
+  (still being looked into). Multiplayer, including a local listen server,
+  works.
+- The torso twist that turns the gun is drawn on each player's screen only.
+  The server's hit boxes for a twisted player's arms can be a little off from
+  what others see (head and chest barely move).
+- Up/down aim isn't limited, so aiming steeply down from an enclosed car shoots
+  through the door.
+- Bullets can hit other people riding in the same vehicle.

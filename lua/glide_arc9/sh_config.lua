@@ -15,11 +15,18 @@ local cvarAllowPassengers = CreateConVar( "glide_arc9_allow_passengers", "1", SE
 local cvarArc9Only = CreateConVar( "glide_arc9_arc9_only", "1", SERVER_FLAGS,
     "Only allow ARC9 weapons to be used while in weapon mode.", 0, 1 )
 
+local cvarAimArc = CreateConVar( "glide_arc9_aim_arc", "110", SERVER_FLAGS,
+    "How far (degrees, left or right of the seat's forward) players can aim and fire in weapon mode.", 30, 180 )
+
 CreateConVar( "glide_arc9_blocked_actions", "attack,attack_alt,switch_weapon,horn", SERVER_FLAGS,
     "Comma-separated Glide input actions that are ignored while a player is in weapon mode." )
 
 local GetNW2Bool = FindMetaTable( "Entity" ).GetNW2Bool
 local NW_WEAPON_MODE = GlideArc9.NW_WEAPON_MODE
+
+function GlideArc9.GetAimArc()
+    return cvarAimArc:GetFloat()
+end
 
 function GlideArc9.IsEnabled()
     return cvarEnabled:GetBool()

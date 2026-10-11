@@ -77,6 +77,33 @@ function GlideArc9.GetAimAngles( ply )
     return aimAngles[ply]
 end
 
+-- Seat-local yaw that faces forward on Glide seats
+local SEAT_FORWARD_YAW = 90
+
+local NormalizeAngle = math.NormalizeAngle
+
+--- Aim yaw/pitch relative to the seat's forward direction (positive yaw
+--- is to the left), or nil if unknown.
+function GlideArc9.GetSeatAimAngles( ply )
+    local aim = aimAngles[ply]
+    if not aim then return end
+
+    local seat = ply:GetVehicle()
+    if not IsValid( seat ) then return end
+
+    local localAim = seat:WorldToLocalAngles( aim )
+
+    return NormalizeAngle( localAim[2] - SEAT_FORWARD_YAW ), NormalizeAngle( localAim[1] )
+end
+
+--- Is the player aiming somewhere their gun can visibly point?
+function GlideArc9.IsAimInArc( ply )
+    local yaw = GlideArc9.GetSeatAimAngles( ply )
+    if not yaw then return true end
+
+    return math.abs( yaw ) <= GlideArc9.GetAimArc()
+end
+
 if SERVER then
     local AngleDifference = math.AngleDifference
     local Abs = math.abs
@@ -172,6 +199,22 @@ function PlayerMeta:GetAimVector()
 
     return originalGetAimVector( self )
 end
+
+----- Firing arc
+
+-- The gun's pose stops at the aim arc (see sh_anims.lua). Block shots past
+-- it, so bullets never leave in a direction the gun isn't visibly pointing
+-- (like out the back of the car while the rifle points out the side).
+-- Runs on both realms, so prediction agrees.
+hook.Add( "ARC9_HookP_BlockFire", "GlideArc9.AimArc", function( weapon )
+    local owner = weapon:GetOwner()
+    if not IsValid( owner ) or not owner:IsPlayer() then return end
+    if not GlideArc9.IsInWeaponMode( owner ) then return end
+
+    if not GlideArc9.IsAimInArc( owner ) then
+        return true
+    end
+end )
 
 ----- Bullets
 

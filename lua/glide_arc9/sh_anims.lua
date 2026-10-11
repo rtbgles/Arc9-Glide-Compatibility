@@ -18,12 +18,8 @@
 ]]
 
 local IsValid = IsValid
-local NormalizeAngle = math.NormalizeAngle
 
 local ACT_HL2MP_SIT = 1970
-
--- Seat-local yaw that faces forward on Glide seats
-local SEAT_FORWARD_YAW = 90
 
 local HOLDTYPE_SEQUENCES = {
     ["pistol"] = "sit_pistol",
@@ -89,10 +85,6 @@ local Clamp = math.Clamp
 -- the next, so the torso twists to make up the rest. Missing ones are skipped.
 local YAW_POSE_PARAMS = { "aim_yaw", "spine_yaw", "body_yaw" }
 local TWIST_POSE_PARAMS = { "spine_yaw", "body_yaw" }
-
--- Nobody can aim straight behind them from a car seat. Past this the gun
--- stays at the limit on that side instead of twisting the torso further.
-local MAX_TOTAL_YAW = 110
 
 -- [model] = { [poseName] = { min, max } or false }
 local poseRanges = {}
@@ -235,17 +227,13 @@ local function UpdateWeaponModeAim( ply )
         return
     end
 
-    local aim = GlideArc9.GetAimAngles( ply )
-    if not aim then return end
+    local yaw, pitch = GlideArc9.GetSeatAimAngles( ply )
+    if not yaw then return end
 
-    local seat = ply:GetVehicle()
-    if not IsValid( seat ) then return end
-
-    local localAim = seat:WorldToLocalAngles( aim )
-    local yaw = NormalizeAngle( localAim[2] - SEAT_FORWARD_YAW )
-    local pitch = NormalizeAngle( localAim[1] )
-
-    local remaining = Clamp( yaw, -MAX_TOTAL_YAW, MAX_TOTAL_YAW )
+    -- Nobody can aim straight behind them from a car seat. Past the aim arc
+    -- the gun stays at the limit on that side (and firing is blocked).
+    local arc = GlideArc9.GetAimArc()
+    local remaining = Clamp( yaw, -arc, arc )
     local twist = 0
     local applied = {}
 
