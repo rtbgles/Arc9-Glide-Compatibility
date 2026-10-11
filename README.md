@@ -39,8 +39,9 @@ Both are loaded lazily, so addon load order does not matter.
   zoom, recoil kick and scoped mouse sensitivity come from the weapon. Your
   previous camera view comes back when you holster.
 - In third person, every seat (including car drivers) uses a seated pose that
-  holds the weapon, with the arms and head following your aim. Other players
-  see this too.
+  holds the weapon. The arms follow your aim, and the torso twists (up to about
+  110° either way) when the arms alone can't turn far enough, e.g. to shoot out
+  a side window. Other players see this too.
 - When you get out of the vehicle you keep holding the weapon you were using.
 
 ## Server convars

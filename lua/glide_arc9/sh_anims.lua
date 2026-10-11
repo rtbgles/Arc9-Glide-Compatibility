@@ -9,7 +9,8 @@
     While in weapon mode, for every seat:
     - use the seated pose that matches the weapon's hold type
     - point the arms and head at the player's aim, twisting the torso
-      when the arms alone can't turn far enough
+      (pose parameters, or spine bones on models without them) when the
+      arms alone can't turn far enough
     - skip Glide's hand/arm bone poses
 
     Glide's hooks are wrapped in place (same hook identifiers), so it does
@@ -144,6 +145,78 @@ local function ResetTwist( ply )
     end
 end
 
+----- Spine bone twist (for player models without spine_yaw/body_yaw)
+
+-- Whatever the pose parameters can't cover is spread over these bones.
+-- The arms and head hang off them, so twisting them turns the gun.
+local TWIST_BONES = {
+    "ValveBiped.Bip01_Spine1",
+    "ValveBiped.Bip01_Spine2",
+    "ValveBiped.Bip01_Spine4"
+}
+
+-- Most the spine bones may twist in total, either way
+local MAX_BONE_TWIST = 75
+
+-- [model] = { boneId, ... }
+local twistBoneIds = {}
+
+local function GetTwistBones( ply )
+    local model = ply:GetModel()
+    local ids = twistBoneIds[model]
+    if ids then return ids end
+
+    ids = {}
+
+    for _, name in ipairs( TWIST_BONES ) do
+        local id = ply:LookupBone( name )
+
+        if id then
+            ids[#ids + 1] = id
+        end
+    end
+
+    twistBoneIds[model] = ids
+
+    return ids
+end
+
+local function ResetBoneTwist( ply )
+    for _, id in ipairs( GetTwistBones( ply ) ) do
+        ply:ManipulateBoneAngles( id, angle_zero, false )
+    end
+end
+
+--- Twist the spine around the vehicle's up axis. Bone axes differ between
+--- models, so the axis is worked out from each bone's current orientation.
+--- Rotating about that axis leaves it unchanged, so reading the already
+--- twisted bones every frame does not feed back into the result.
+local function ApplyBoneTwist( ply, amount )
+    local ids = GetTwistBones( ply )
+    local count = #ids
+    if count == 0 then return end
+
+    local vehicle = ply:GlideGetVehicle()
+    if not IsValid( vehicle ) then return end
+
+    local up = vehicle:GetUp()
+    local perBone = amount / count
+
+    for _, id in ipairs( ids ) do
+        local matrix = ply:GetBoneMatrix( id )
+
+        if matrix then
+            local localAxis = WorldToLocal( up, angle_zero, vector_origin, matrix:GetAngles() )
+            localAxis:Normalize()
+
+            local ang = Angle()
+
+            ang:RotateAroundAxis( localAxis, perBone )
+            ply:ManipulateBoneAngles( id, ang, false )
+        end
+    end
+end
+
 local function UpdateWeaponModeAim( ply )
     local plyTbl = ply:GetTable()
 
@@ -151,7 +224,12 @@ local function UpdateWeaponModeAim( ply )
         -- Put the torso back once after leaving weapon mode
         if plyTbl.GlideArc9Twisted then
             plyTbl.GlideArc9Twisted = nil
+            plyTbl.GlideArc9BoneTwist = nil
             ResetTwist( ply )
+
+            if CLIENT then
+                ResetBoneTwist( ply )
+            end
         end
 
         return
@@ -181,6 +259,15 @@ local function UpdateWeaponModeAim( ply )
         end
     end
 
+    -- Whatever is still left goes to the spine bones (drawn clientside)
+    local boneTwist = 0
+
+    if CLIENT and #GetTwistBones( ply ) > 0 then
+        boneTwist = Clamp( remaining, -MAX_BONE_TWIST, MAX_BONE_TWIST )
+        twist = twist + boneTwist
+    end
+
+    plyTbl.GlideArc9BoneTwist = boneTwist
     plyTbl.GlideArc9Twisted = true
 
     -- The head turns with the torso, so it only needs what the twist didn't cover
@@ -204,8 +291,8 @@ local function UpdateWeaponModeAim( ply )
                 or ( name .. " missing" )
         end
 
-        print( string.format( "[GlideArc9 CL v" .. GlideArc9.VERSION .. "] pose | target yaw %.1f pitch %.1f | %s | head %.1f",
-            yaw, pitch, table.concat( parts, " | " ), yaw - twist ) )
+        print( string.format( "[GlideArc9 CL v" .. GlideArc9.VERSION .. "] pose | target yaw %.1f pitch %.1f | %s | spine bones %.1f (%d) | head %.1f",
+            yaw, pitch, table.concat( parts, " | " ), boneTwist, #GetTwistBones( ply ), yaw - twist ) )
     end
 end
 
@@ -267,6 +354,8 @@ local function WrapGlideHooks()
                 if Glide and Glide.ResetBoneManipulations then
                     Glide.ResetBoneManipulations( ply )
                 end
+
+                ApplyBoneTwist( ply, ply:GetTable().GlideArc9BoneTwist or 0 )
 
                 return
             end
