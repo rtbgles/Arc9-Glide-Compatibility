@@ -21,6 +21,9 @@ Both are loaded lazily, so addon load order does not matter.
   mode (by default: vehicle `attack`, `attack_alt`, `switch_weapon` and `horn`).
   You can still drive.
 - Scroll wheel and number keys switch between your allowed weapons.
+- Your weapon aims wherever Glide's camera is looking, in first and third
+  person. Glide's own aiming (mouse steering, turrets, tank cannons) keeps
+  working too.
 - The camera switches to first person so iron sights and scopes line up. ADS
   zoom, recoil kick and scoped mouse sensitivity come from the weapon. Your
   previous camera view comes back when you holster.

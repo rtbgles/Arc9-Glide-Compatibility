@@ -61,28 +61,76 @@ function GlideArc9.CameraMouseSensitivity( camera )
     return mult
 end
 
---- Wrap a few of Glide's camera functions. Glide's hooks look these up on
---- the Camera table every call, so wrapping them is enough. The wrappers call
---- through GlideArc9 so a Lua refresh picks up new logic without re-wrapping.
+local Clamp = math.Clamp
+local NormalizeAngle = math.NormalizeAngle
+
+--- Glide writes the camera's *world* aim angles into the usercmd. While
+--- seated, the engine treats usercmd angles as local to the seat, so the
+--- player's real eye angles (which ARC9 aims, shoots and positions the
+--- viewmodel with) end up rotated by the seat's angles. Convert them to the
+--- seat's local space so the weapon points where the camera is looking.
+--- The server converts them back for Glide's own aim logic (see sv_aim.lua).
+function GlideArc9.CameraCreateMove( camera, cmd )
+    if not camera.isActive then return end
+
+    local ply = LocalPlayer()
+    if not GlideArc9.IsInWeaponMode( ply ) then return end
+
+    local seat = ply:GetVehicle()
+    if not IsValid( seat ) then return end
+
+    local angles = seat:WorldToLocalAngles( cmd:GetViewAngles() )
+
+    angles[1] = Clamp( NormalizeAngle( angles[1] ), -89, 89 )
+    angles[3] = 0
+
+    cmd:SetViewAngles( angles )
+end
+
+--- Wrap one of Glide's camera functions, once. Glide's hooks look these up
+--- on the Camera table every call, so wrapping them is enough. The wrappers
+--- call through GlideArc9 so a Lua refresh picks up new logic.
+local function WrapCameraFunction( camera, name, makeWrapper )
+    local marker = "GlideArc9Wrapped_" .. name
+    local original = camera[name]
+
+    -- Skip if missing, or already wrapped (Glide refreshing replaces it)
+    if not isfunction( original ) or original == camera[marker] then return end
+
+    local wrapper = makeWrapper( original )
+
+    camera[marker] = wrapper
+    camera[name] = wrapper
+end
+
 local function WrapCamera()
     local camera = GetCamera()
-    if not camera or camera.GlideArc9Wrapped then return end
-    if not isfunction( camera.CalcView ) or not isfunction( camera.InputMouseApply ) then return end
+    if not camera then return end
 
-    camera.GlideArc9Wrapped = true
+    WrapCameraFunction( camera, "CalcView", function( original )
+        return function( self, ... )
+            return GlideArc9.CameraCalcView( self, original( self, ... ) )
+        end
+    end )
 
-    local originalCalcView = camera.CalcView
-    local originalInputMouseApply = camera.InputMouseApply
+    WrapCameraFunction( camera, "InputMouseApply", function( original )
+        return function( self, cmd, x, y, ... )
+            local mult = GlideArc9.CameraMouseSensitivity( self )
 
-    function camera:CalcView( ... )
-        return GlideArc9.CameraCalcView( self, originalCalcView( self, ... ) )
-    end
+            return original( self, cmd, x * mult, y * mult, ... )
+        end
+    end )
 
-    function camera:InputMouseApply( cmd, x, y, ... )
-        local mult = GlideArc9.CameraMouseSensitivity( self )
+    -- Must run after Glide's own CreateMove, which is why it is a wrapper
+    -- and not a separate hook.
+    WrapCameraFunction( camera, "CreateMove", function( original )
+        return function( self, cmd, ... )
+            local result = original( self, cmd, ... )
+            GlideArc9.CameraCreateMove( self, cmd )
 
-        return originalInputMouseApply( self, cmd, x * mult, y * mult, ... )
-    end
+            return result
+        end
+    end )
 end
 
 ----- First person while in weapon mode
