@@ -8,7 +8,8 @@
 
     While in weapon mode, for every seat:
     - use the seated pose that matches the weapon's hold type
-    - point the arms and head at the player's aim
+    - point the arms and head at the player's aim, twisting the torso
+      when the arms alone can't turn far enough
     - skip Glide's hand/arm bone poses
 
     Glide's hooks are wrapped in place (same hook identifiers), so it does
@@ -78,8 +79,75 @@ local function CalcWeaponModeActivity( ply )
     return ACT_HL2MP_SIT, seq
 end
 
+----- Aim pose
+
+local Clamp = math.Clamp
+
+-- Each of these can only turn so far (aim_yaw stops around the A-pillar
+-- when looking out a side window). Whatever one can't cover is passed on to
+-- the next, so the torso twists to make up the rest. Missing ones are skipped.
+local YAW_POSE_PARAMS = { "aim_yaw", "spine_yaw", "body_yaw" }
+local TWIST_POSE_PARAMS = { "spine_yaw", "body_yaw" }
+
+-- [model] = { [poseName] = { min, max } or false }
+local poseRanges = {}
+
+local function GetPoseRange( ply, name )
+    local model = ply:GetModel()
+    local ranges = poseRanges[model]
+
+    if not ranges then
+        ranges = {}
+        poseRanges[model] = ranges
+    end
+
+    local range = ranges[name]
+
+    if range == nil then
+        local id = ply:LookupPoseParameter( name )
+
+        if id < 0 then
+            range = false
+        else
+            local min, max = ply:GetPoseParameterRange( id )
+            range = { min, max }
+        end
+
+        ranges[name] = range
+    end
+
+    return range
+end
+
+--- Set a pose parameter within its range. Returns the value actually used.
+local function SetClampedPose( ply, name, value )
+    local range = GetPoseRange( ply, name )
+    if not range then return 0 end
+
+    value = Clamp( value, range[1], range[2] )
+    ply:SetPoseParameter( name, value )
+
+    return value
+end
+
+local function ResetTwist( ply )
+    for _, name in ipairs( TWIST_POSE_PARAMS ) do
+        SetClampedPose( ply, name, 0 )
+    end
+end
+
 local function UpdateWeaponModeAim( ply )
-    if not GetWeaponModeWeapon( ply ) then return end
+    local plyTbl = ply:GetTable()
+
+    if not GetWeaponModeWeapon( ply ) then
+        -- Put the torso back once after leaving weapon mode
+        if plyTbl.GlideArc9Twisted then
+            plyTbl.GlideArc9Twisted = nil
+            ResetTwist( ply )
+        end
+
+        return
+    end
 
     local aim = GlideArc9.GetAimAngles( ply )
     if not aim then return end
@@ -91,10 +159,24 @@ local function UpdateWeaponModeAim( ply )
     local yaw = NormalizeAngle( localAim[2] - SEAT_FORWARD_YAW )
     local pitch = NormalizeAngle( localAim[1] )
 
-    ply:SetPoseParameter( "aim_yaw", yaw )
-    ply:SetPoseParameter( "aim_pitch", pitch )
-    ply:SetPoseParameter( "head_yaw", yaw )
-    ply:SetPoseParameter( "head_pitch", pitch )
+    local remaining = yaw
+    local twist = 0
+
+    for i, name in ipairs( YAW_POSE_PARAMS ) do
+        local applied = SetClampedPose( ply, name, remaining )
+        remaining = remaining - applied
+
+        if i > 1 then
+            twist = twist + applied
+        end
+    end
+
+    plyTbl.GlideArc9Twisted = true
+
+    -- The head turns with the torso, so it only needs what the twist didn't cover
+    SetClampedPose( ply, "head_yaw", yaw - twist )
+    SetClampedPose( ply, "aim_pitch", pitch )
+    SetClampedPose( ply, "head_pitch", pitch )
 
     if CLIENT then
         ply:InvalidateBoneCache()
