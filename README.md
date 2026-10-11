@@ -21,9 +21,10 @@ Both are loaded lazily, so addon load order does not matter.
   mode (by default: vehicle `attack`, `attack_alt`, `switch_weapon` and `horn`).
   You can still drive.
 - Scroll wheel and number keys switch between your allowed weapons.
-- Your weapon aims wherever Glide's camera is looking, in first and third
-  person. Glide's own aiming (mouse steering, turrets, tank cannons) keeps
-  working too.
+- Your weapon aims and shoots wherever Glide's camera is looking, in first
+  and third person.
+- Bullets ignore the vehicle you're sitting in, and ARC9's "too close to a
+  wall" check is off, so you can shoot from inside enclosed cars.
 - The camera switches to first person so iron sights and scopes line up. ADS
   zoom, recoil kick and scoped mouse sensitivity come from the weapon. Your
   previous camera view comes back when you holster.
@@ -75,6 +76,10 @@ hook.Add( "GlideArc9_CanDrawHUD", "MyAddon", function() end )
 - If Glide's mouse steering is set to **Aim**, aiming your gun also steers the
   car. Set mouse steering to "Disabled" in Glide's settings if you'll be
   driving and shooting at the same time.
+- Bullets pass through your own vehicle's windows and doors without
+  breaking them.
+- Other players may see your gun pointing slightly off in third person. Only
+  your own client and the server use the corrected aim.
 - The scroll wheel also cycles the vehicle's own weapons for drivers of
   armed vehicles (Glide reads the scroll wheel directly).
 - Garry's Mod says `SetAllowWeaponsInVehicle` should be set before entering a

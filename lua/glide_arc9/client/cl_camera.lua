@@ -61,32 +61,6 @@ function GlideArc9.CameraMouseSensitivity( camera )
     return mult
 end
 
-local Clamp = math.Clamp
-local NormalizeAngle = math.NormalizeAngle
-
---- Glide writes the camera's *world* aim angles into the usercmd. While
---- seated, the engine treats usercmd angles as local to the seat, so the
---- player's real eye angles (which ARC9 aims, shoots and positions the
---- viewmodel with) end up rotated by the seat's angles. Convert them to the
---- seat's local space so the weapon points where the camera is looking.
---- The server converts them back for Glide's own aim logic (see sv_aim.lua).
-function GlideArc9.CameraCreateMove( camera, cmd )
-    if not camera.isActive then return end
-
-    local ply = LocalPlayer()
-    if not GlideArc9.IsInWeaponMode( ply ) then return end
-
-    local seat = ply:GetVehicle()
-    if not IsValid( seat ) then return end
-
-    local angles = seat:WorldToLocalAngles( cmd:GetViewAngles() )
-
-    angles[1] = Clamp( NormalizeAngle( angles[1] ), -89, 89 )
-    angles[3] = 0
-
-    cmd:SetViewAngles( angles )
-end
-
 --- Wrap one of Glide's camera functions, once. Glide's hooks look these up
 --- on the Camera table every call, so wrapping them is enough. The wrappers
 --- call through GlideArc9 so a Lua refresh picks up new logic.
@@ -118,17 +92,6 @@ local function WrapCamera()
             local mult = GlideArc9.CameraMouseSensitivity( self )
 
             return original( self, cmd, x * mult, y * mult, ... )
-        end
-    end )
-
-    -- Must run after Glide's own CreateMove, which is why it is a wrapper
-    -- and not a separate hook.
-    WrapCameraFunction( camera, "CreateMove", function( original )
-        return function( self, cmd, ... )
-            local result = original( self, cmd, ... )
-            GlideArc9.CameraCreateMove( self, cmd )
-
-            return result
         end
     end )
 end
